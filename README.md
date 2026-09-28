@@ -9,6 +9,7 @@ A countdown timer for Pebble smartwatches, forked from Pebble's `pebble-timer` a
 - Pause or start a timer on create
 - Extra confirmation to avoid accidental deletions
 - Customize snooze duration
+- Touch input support
 - Mix and match settings
 
 ## Preview

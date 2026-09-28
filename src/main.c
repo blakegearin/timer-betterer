@@ -875,6 +875,12 @@ static void menu_window_click_callback(MenuRowKind kind, uint8_t row, void *cont
 static void initialize(void) {
   // connect to phone
   phone_connect();
+  // opt into touch navigation: on touch hardware the system maps taps and
+  // swipes on the app's MenuLayers (timers, settings, options) onto button
+  // presses. a no-op where the platform has no touch. the duration, detail,
+  // and popup windows drive their own recognizers instead, and turn the
+  // bridge off for themselves.
+  (void)app_touch_navigation_enable(true);
   // load the CountdownTimer data
   if (persist_exists(COUNTDOWN_TIMER_PERSIST_KEY)) {
     countdown_timer_list_load(s_countdown_timers, COUNTDOWN_TIMERS_MAX,

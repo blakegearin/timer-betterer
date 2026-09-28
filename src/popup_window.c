@@ -45,6 +45,7 @@
 #include <pebble.h>
 #include "popup_window.h"
 #include "countdown_timer.h"
+#include "touch.h"
 
 /*******************************************************************************
  * CONSTANTS
@@ -219,12 +220,16 @@ static void app_timer_vibe_callback(void *data) {
  * snoozes the vibrating timer
  */
 
-static void up_click_handler(ClickRecognizerRef recognizer, void *context) {
+static void prv_up_pressed(void *context) {
   PopupWindow *popup_window = (PopupWindow*)context;
   if (popup_window->callbacks.up_click == NULL) {
     return;
   }
   return popup_window->callbacks.up_click(popup_window->countdown_timer, context);
+}
+
+static void up_click_handler(ClickRecognizerRef recognizer, void *context) {
+  prv_up_pressed(context);
 }
 
 
@@ -251,12 +256,16 @@ static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
  * stops the vibrating timer
  */
 
-static void down_click_handler(ClickRecognizerRef recognizer, void *context) {
+static void prv_down_pressed(void *context) {
   PopupWindow *popup_window = (PopupWindow*)context;
   if (popup_window->callbacks.down_click == NULL) {
     return;
   }
   return popup_window->callbacks.down_click(context);
+}
+
+static void down_click_handler(ClickRecognizerRef recognizer, void *context) {
+  prv_down_pressed(context);
 }
 
 
@@ -273,6 +282,55 @@ static void click_config_provider(void *context) {
   window_single_click_subscribe(BUTTON_ID_SELECT, select_click_handler);
   window_single_click_subscribe(BUTTON_ID_DOWN, down_click_handler);
 }
+
+
+
+/*******************************************************************************
+ * TOUCH
+ */
+
+#if TOUCH_INPUT
+
+// the one live PopupWindow, by the file-static route touch.h describes
+
+static PopupWindow *s_touch_popup_window = NULL;
+
+// a tap on the upper half of the action bar column snoozes and on the lower
+// half stops, mirroring the two icons the bar shows. the middle third sits
+// between them, like the middle button, and does nothing.
+static void prv_touch_tap_handler(const Recognizer *recognizer, RecognizerEvent event) {
+  if (!s_touch_popup_window || event != RecognizerEvent_Completed) {
+    return;
+  }
+  if (!s_touch_popup_window->action_visible) {
+    return;
+  }
+  GPoint tap = tap_recognizer_get_tap_point(recognizer);
+  GRect bounds = layer_get_bounds(window_get_root_layer(s_touch_popup_window->window));
+  if (tap.x < bounds.size.w - ACTION_BAR_WIDTH) {
+    return;
+  }
+  if (tap.y < bounds.size.h / 2) {
+    if (s_touch_popup_window->snooze_enabled) {
+      prv_up_pressed(s_touch_popup_window);
+    }
+  } else {
+    prv_down_pressed(s_touch_popup_window);
+  }
+}
+
+// a sideways flick dismisses the popup the way stopping it does
+static void prv_touch_swipe_handler(const Recognizer *recognizer, RecognizerEvent event) {
+  if (!s_touch_popup_window || event != RecognizerEvent_Completed) {
+    return;
+  }
+  if (swipe_recognizer_get_direction(recognizer) &
+    (SwipeDirection_Left | SwipeDirection_Right)) {
+    prv_down_pressed(s_touch_popup_window);
+  }
+}
+
+#endif  // TOUCH_INPUT
 
 static void prv_window_load(Window* window){
   PopupWindow *popup_window = window_get_user_data(window);
@@ -308,6 +366,19 @@ static void prv_window_load(Window* window){
     action_bar_layer_add_to_window(popup_window->action, popup_window->window);
   }
 
+#if TOUCH_INPUT
+  // touch: taps on the action bar column snooze and stop, a sideways flick
+  // dismisses. the bridge is turned off so the recognizers get the touch
+  // stream.
+  s_touch_popup_window = popup_window;
+  window_set_touch_bridge_disabled(popup_window->window, true);
+  window_attach_recognizer(popup_window->window,
+    tap_recognizer_create(prv_touch_tap_handler, NULL));
+  window_attach_recognizer(popup_window->window,
+    swipe_recognizer_create(prv_touch_swipe_handler, NULL,
+      SwipeDirection_Left | SwipeDirection_Right));
+#endif
+
   // re-center layers
   layers_center_in_window(popup_window);
 
@@ -316,6 +387,9 @@ static void prv_window_load(Window* window){
 
 static void prv_window_unload(Window* window){
   PopupWindow *popup_window = window_get_user_data(window);
+#if TOUCH_INPUT
+  s_touch_popup_window = NULL;
+#endif
   action_bar_layer_destroy(popup_window->action);
   text_layer_destroy(popup_window->text);
   layer_destroy(popup_window->layer);

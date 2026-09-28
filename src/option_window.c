@@ -24,6 +24,7 @@
 
 #include <pebble.h>
 #include "option_window.h"
+#include "touch.h"
 
 /*
  * The whole window is excluded on aplite rather than deleted from the build:
@@ -80,6 +81,9 @@ struct OptionWindow {
   GColor      row_highlight;   //< live highlight of the focused row: the theme
                                //   colour, or the swatch being previewed on
                                //   the colour screen
+#if TOUCH_INPUT
+  DoubleTap double_tap;        //< tap-to-open debounce
+#endif
 };
 
 
@@ -298,17 +302,74 @@ static void option_draw_row_callback(GContext *ctx, const Layer *cell_layer,
 
 
 /*
+ * TOUCH
+ *
+ * same arrangement as the settings window (see settings_window.c): on touch
+ * the window installs its own click config, because the MenuLayer's would
+ * route the physical SELECT through the debounced select_click as well. the
+ * provider's select acts at once; the debounced callback below only ever sees
+ * fingers. The walk is the shared one from menu_list.c, clamped like the
+ * settings menu's.
+ */
+
+#if TOUCH_INPUT
+
+#include "menu_list.h"
+
+#define OPTION_BUTTON_REPEAT_MS 100
+
+static void option_up_click_handler(ClickRecognizerRef recognizer, void *context) {
+  OptionWindow *option_window = (OptionWindow*)context;
+  menu_list_step_selection(option_window->menu, -1, option_window->count, false);
+}
+
+static void option_down_click_handler(ClickRecognizerRef recognizer, void *context) {
+  OptionWindow *option_window = (OptionWindow*)context;
+  menu_list_step_selection(option_window->menu, 1, option_window->count, false);
+}
+
+static void option_select_click_handler(ClickRecognizerRef recognizer, void *context) {
+  OptionWindow *option_window = (OptionWindow*)context;
+  const uint8_t option = (uint8_t)menu_layer_get_selected_index(option_window->menu).row;
+  // a button acts at once; a half-finished tap on this row must not pair
+  // with anything that comes after it
+  double_tap_reset(&option_window->double_tap);
+  window_stack_remove(option_window->window, true);
+  option_window->selected(option, option_window->context);
+}
+
+static void option_click_config_provider(void *context) {
+  window_single_repeating_click_subscribe(BUTTON_ID_UP, OPTION_BUTTON_REPEAT_MS,
+                                          option_up_click_handler);
+  window_single_repeating_click_subscribe(BUTTON_ID_DOWN, OPTION_BUTTON_REPEAT_MS,
+                                          option_down_click_handler);
+  window_single_click_subscribe(BUTTON_ID_SELECT, option_select_click_handler);
+}
+
+#endif  // TOUCH_INPUT
+
+
+
+/*
  * menu layer clicked callback
  *
  * selecting pops immediately, no BACK and no Submit row -- follow the
  * firmware, not the ui-patterns example. The pop happens before the callback
  * so the callback can refresh the now-topmost settings window and the user
  * sees the new value already drawn under the setting's name.
+ *
+ * on touch this callback is reached only by a finger (the buttons ride the
+ * provider above), and only the second tap on the same row commits.
  */
 
 static void option_select_callback(MenuLayer *menu_layer, MenuIndex *cell_index, void *context) {
   OptionWindow *option_window = (OptionWindow*)context;
   const uint8_t option = (uint8_t)cell_index->row;
+#if TOUCH_INPUT
+  if (!double_tap_tap(&option_window->double_tap, (uint16_t)option)) {
+    return;
+  }
+#endif
   window_stack_remove(option_window->window, true);
   option_window->selected(option, option_window->context);
 }
@@ -383,7 +444,12 @@ static void option_window_load(Window *window) {
 #endif
   };
   menu_layer_set_callbacks(option_window->menu, option_window, callbacks);
+#if TOUCH_INPUT
+  window_set_click_config_provider_with_context(window, option_click_config_provider,
+                                                option_window);
+#else
   menu_layer_set_click_config_onto_window(option_window->menu, window);
+#endif
   menu_layer_set_highlight_colors(option_window->menu, option_window->row_highlight,
                                   gcolor_legible_over(option_window->row_highlight));
   layer_add_child(root, menu_layer_get_layer(option_window->menu));
@@ -438,6 +504,9 @@ OptionWindow *option_window_create(OptionWindowSelectCallback selected, void *co
   option_window->selected_option = 0;
   option_window->highlight_color = GColorBlack;
   option_window->row_highlight = GColorBlack;
+#if TOUCH_INPUT
+  double_tap_reset(&option_window->double_tap);
+#endif
   option_window->window = window_create();
   window_set_user_data(option_window->window, option_window);
   window_set_window_handlers(option_window->window, (WindowHandlers) {

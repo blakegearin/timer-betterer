@@ -570,8 +570,8 @@ void prv_select_click_handler(ClickRecognizerRef recognizer, void *context) {
   }
 }
 
-void prv_back_click_handler(ClickRecognizerRef recognizer, void *context) {
-  Layer *layer = (Layer*)context;
+// step back through the fields, and out of the window when on the first one
+static void prv_back_layer(Layer *layer) {
   SelectionLayerData *data = layer_get_data(layer);
   if (data->is_active) {
     animation_unschedule(data->next_cell_animation);
@@ -584,6 +584,112 @@ void prv_back_click_handler(ClickRecognizerRef recognizer, void *context) {
     }
   }
 }
+
+void prv_back_click_handler(ClickRecognizerRef recognizer, void *context) {
+  prv_back_layer((Layer*)context);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+//! Touch
+//
+// These four are the entry points for touch-driven changes: they apply the
+// same effects as the up/down buttons and the select button, so the window
+// owning the layer needs no button presses to be driven by a finger. They
+// exist only where a touchscreen exists: aplite pays for every byte of code
+// in its 24 KB, and these declarations, the touch_pan_accum field, and the
+// only callers -- the recognizers in duration_window.c -- guard themselves
+// with the same TOUCH_INPUT test.
+
+#if TOUCH_INPUT
+
+// Screen y grows downward, so a negative delta is a finger moving up, which
+// scrolls the numbers up and raises the value -- the same pairing as the UP
+// button.
+#define TOUCH_PAN_PX_PER_STEP 8
+
+void selection_layer_touch_panned(Layer *layer, int16_t dy) {
+  SelectionLayerData *data = layer_get_data(layer);
+  if (!data->is_active) {
+    return;
+  }
+  data->touch_pan_accum += dy;
+  bool changed = false;
+  while (data->touch_pan_accum <= -TOUCH_PAN_PX_PER_STEP) {
+    data->touch_pan_accum += TOUCH_PAN_PX_PER_STEP;
+    data->callbacks.increment(data->selected_cell_idx, 1, data->callback_context);
+    changed = true;
+  }
+  while (data->touch_pan_accum >= TOUCH_PAN_PX_PER_STEP) {
+    data->touch_pan_accum -= TOUCH_PAN_PX_PER_STEP;
+    data->callbacks.decrement(data->selected_cell_idx, 1, data->callback_context);
+    changed = true;
+  }
+  if (changed) {
+    layer_mark_dirty(layer);
+  }
+}
+
+// the leftover pixels of a finished gesture are not owed to the next one
+void selection_layer_touch_pan_ended(Layer *layer) {
+  SelectionLayerData *data = layer_get_data(layer);
+  data->touch_pan_accum = 0;
+}
+
+// a flick back through the fields and out of the window, exactly what the
+// back button does.
+void selection_layer_touch_back(Layer *layer) {
+  prv_back_layer(layer);
+}
+
+void selection_layer_touch_tapped(Layer *layer, GPoint tap_point) {
+  SelectionLayerData *data = layer_get_data(layer);
+  if (!data->is_active) {
+    return;
+  }
+  // map the screen-space tap into the layer; the x-column walk matches the
+  // offset accumulation in prv_draw_cell_backgrounds
+  GPoint origin = layer_convert_point_to_screen(layer, GPoint(0, 0));
+  int x = tap_point.x - origin.x;
+  int y = tap_point.y - origin.y;
+  GRect bounds = layer_get_bounds(layer);
+  if (x < 0 || y < 0 || x >= bounds.size.w || y >= bounds.size.h) {
+    return;
+  }
+  int tapped_cell_idx = -1;
+  for (unsigned i = 0, current_x_offset = 0; i < data->num_cells; i++) {
+    if (data->cell_widths[i] == 0) {
+      continue;
+    }
+    if (x < (int)(current_x_offset + data->cell_widths[i])) {
+      tapped_cell_idx = i;
+      break;
+    }
+    current_x_offset += data->cell_widths[i] + data->cell_padding;
+  }
+  if (tapped_cell_idx < 0) {
+    return;
+  }
+  animation_unschedule(data->next_cell_animation);
+  if ((unsigned)tapped_cell_idx == data->selected_cell_idx) {
+    // tapping the already-active cell is the select button: move to the next
+    // cell, or complete and wrap back to the first
+    if (data->selected_cell_idx >= data->num_cells - 1) {
+      data->selected_cell_idx = 0;
+      data->touch_pan_accum = 0;
+      layer_mark_dirty(layer);
+      data->callbacks.complete(data->callback_context);
+    } else {
+      data->slide_is_forward = true;
+      prv_run_slide_animation(layer);
+    }
+  } else {
+    data->selected_cell_idx = (unsigned)tapped_cell_idx;
+    data->touch_pan_accum = 0;
+    layer_mark_dirty(layer);
+  }
+}
+
+#endif // TOUCH_INPUT
 
 static void prv_click_config_provider(Layer *layer) {
   // Config UP / DOWN button behavior:

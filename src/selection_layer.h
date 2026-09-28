@@ -7,6 +7,7 @@
 #pragma once
 
 #include "pebble.h"
+#include "touch.h"
 
 #define MAX_SELECTION_LAYER_CELLS 3
 
@@ -58,6 +59,11 @@ typedef struct SelectionLayerData {
   AnimationImplementation slide_amin_impl;
   unsigned slide_settle_anim_progress;
   AnimationImplementation slide_settle_anim_impl;
+
+#if TOUCH_INPUT
+  // leftover pixels of the touch pan not yet traded for a value step
+  int16_t touch_pan_accum;
+#endif
 } SelectionLayerData;
 
 
@@ -88,3 +94,20 @@ void selection_layer_set_click_config_onto_window(Layer *layer, struct Window *w
 
 void selection_layer_set_callbacks(Layer *layer, void *callback_context,
                                    SelectionLayerCallbacks callbacks);
+
+#if TOUCH_INPUT
+// Touch entry points, for a window feeding its own recognizers into the layer.
+// selection_layer_touch_panned takes the vertical movement of a finger since
+// the last call, screen orientation (negative is a finger moving up, which
+// increments); whole 8 px blocks step the active cell, leftovers accumulate.
+// selection_layer_touch_tapped takes a screen-space tap: tapping a cell
+// activates it, tapping the active cell acts as the select button. Taps
+// outside the layer's bounds are ignored.
+void selection_layer_touch_panned(Layer *layer, int16_t dy);
+// drops the leftover of a pan gesture that has ended, so it is not owed to
+// the next one
+void selection_layer_touch_pan_ended(Layer *layer);
+void selection_layer_touch_tapped(Layer *layer, GPoint tap_point);
+// steps back through the fields and out of the window, the back button's job
+void selection_layer_touch_back(Layer *layer);
+#endif  // TOUCH_INPUT

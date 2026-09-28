@@ -24,6 +24,7 @@
 
 #include <pebble.h>
 #include "settings_window.h"
+#include "touch.h"
 
 /*
  * The whole window is excluded on aplite rather than deleted from the build:
@@ -58,6 +59,9 @@ struct SettingsWindow {
   const uint8_t *row_ids; //< which row each list row stands for, owned by the caller
   uint8_t      num_rows;  //< how many row ids there are
   GColor      highlight_color;       //< main color for highlights
+#if TOUCH_INPUT
+  DoubleTap double_tap;              //< tap-to-open debounce
+#endif
 };
 
 
@@ -133,12 +137,75 @@ static void settings_draw_row_callback(GContext *ctx, const Layer *cell_layer,
 
 
 /*
+ * TOUCH
+ *
+ * the system touch navigation drives the MenuLayer itself: a tap moves the
+ * cursor onto the tapped row and fires select_click there, whatever moved.
+ * that is tap to select, but it is not open, and the firmware offers no
+ * double-tap of its own, so opening is the callback's business -- and the
+ * button's click config must not be the MenuLayer's, or the physical SELECT
+ * would ride the same debounced path. so on touch the window installs the
+ * provider below instead: the same walk the main list uses, from
+ * menu_list.c, clamped, since Wrap Around is a setting about the timer
+ * list and not about these menus.
+ */
+
+#if TOUCH_INPUT
+
+#include "menu_list.h"
+
+#define SETTINGS_BUTTON_REPEAT_MS 100
+
+static void settings_up_click_handler(ClickRecognizerRef recognizer, void *context) {
+  SettingsWindow *settings_window = (SettingsWindow*)context;
+  menu_list_step_selection(settings_window->menu, -1, settings_window->num_rows, false);
+}
+
+static void settings_down_click_handler(ClickRecognizerRef recognizer, void *context) {
+  SettingsWindow *settings_window = (SettingsWindow*)context;
+  menu_list_step_selection(settings_window->menu, 1, settings_window->num_rows, false);
+}
+
+static void settings_select_click_handler(ClickRecognizerRef recognizer, void *context) {
+  SettingsWindow *settings_window = (SettingsWindow*)context;
+  const uint8_t row = (uint8_t)menu_layer_get_selected_index(settings_window->menu).row;
+  // a button acts at once; a half-finished tap on this row must not pair
+  // with anything that comes after it
+  double_tap_reset(&settings_window->double_tap);
+  settings_window->callbacks.clicked(settings_window->row_ids[row], settings_window);
+}
+
+static void settings_click_config_provider(void *context) {
+  window_single_repeating_click_subscribe(BUTTON_ID_UP, SETTINGS_BUTTON_REPEAT_MS,
+                                          settings_up_click_handler);
+  window_single_repeating_click_subscribe(BUTTON_ID_DOWN, SETTINGS_BUTTON_REPEAT_MS,
+                                          settings_down_click_handler);
+  window_single_click_subscribe(BUTTON_ID_SELECT, settings_select_click_handler);
+}
+
+#endif  // TOUCH_INPUT
+
+
+
+/*
  * menu layer clicked callback
+ *
+ * off touch this is the physical SELECT, routed by the MenuLayer's own click
+ * config, and acts at once. on touch the click config is the window's instead
+ * (see the touch block below), so a click reaching this callback is always a
+ * finger: the bridge has already moved the cursor onto the tapped row, and
+ * the row opens only when a second tap lands on it inside the double tap
+ * window.
  */
 
 static void settings_select_callback(MenuLayer *menu_layer, MenuIndex *cell_index,
                                      void *context) {
   SettingsWindow *settings_window = (SettingsWindow*)context;
+#if TOUCH_INPUT
+  if (!double_tap_tap(&settings_window->double_tap, (uint16_t)cell_index->row)) {
+    return;
+  }
+#endif
   settings_window->callbacks.clicked(settings_window->row_ids[cell_index->row], context);
 }
 
@@ -186,7 +253,12 @@ static void settings_window_load(Window *window) {
   // no get_cell_height on rect: the MenuLayer default is the system metric on
   // every platform, and MENU_CELL_BASIC_HEIGHT does not exist to name it
   menu_layer_set_callbacks(settings_window->menu, settings_window, callbacks);
+#if TOUCH_INPUT
+  window_set_click_config_provider_with_context(window, settings_click_config_provider,
+                                                settings_window);
+#else
   menu_layer_set_click_config_onto_window(settings_window->menu, window);
+#endif
   menu_layer_set_highlight_colors(settings_window->menu, settings_window->highlight_color,
                                   gcolor_legible_over(settings_window->highlight_color));
   layer_add_child(root, menu_layer_get_layer(settings_window->menu));
@@ -235,6 +307,9 @@ SettingsWindow *settings_window_create(SettingsWindowCallbacks settings_window_c
   settings_window->menu = NULL;
   settings_window->status = NULL;
   settings_window->highlight_color = GColorBlack;
+#if TOUCH_INPUT
+  double_tap_reset(&settings_window->double_tap);
+#endif
   settings_window->window = window_create();
   window_set_user_data(settings_window->window, settings_window);
   window_set_window_handlers(settings_window->window, (WindowHandlers) {

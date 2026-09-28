@@ -29,6 +29,7 @@
 #include "duration_window.h"
 #include "countdown_timer.h"
 #include "selection_layer.h"
+#include "touch.h"
 
 #define MSEC_IN_SEC 1000
 #define MSEC_IN_MIN 60000
@@ -184,6 +185,59 @@ static void selection_handle_dec(unsigned index, uint8_t clicks, void *context) 
 
 
 /*******************************************************************************
+ * TOUCH
+ */
+
+#if TOUCH_INPUT
+
+// the one live DurationWindow, by the file-static route touch.h describes
+
+static DurationWindow *s_touch_duration_window = NULL;
+
+// a horizontal flick steps back through the fields and out of the window,
+// exactly what the back button does; the system bridge is off here, so the
+// gesture stands in for both it and the button.
+static void prv_touch_swipe_handler(const Recognizer *recognizer, RecognizerEvent event) {
+  if (!s_touch_duration_window || event != RecognizerEvent_Completed) {
+    return;
+  }
+  if (swipe_recognizer_get_direction(recognizer) &
+    (SwipeDirection_Left | SwipeDirection_Right)) {
+    selection_layer_touch_back(s_touch_duration_window->selection);
+  }
+}
+
+static void prv_touch_pan_handler(const Recognizer *recognizer, RecognizerEvent event) {
+  if (!s_touch_duration_window) {
+    return;
+  }
+  switch (event) {
+    case RecognizerEvent_Updated:
+      selection_layer_touch_panned(s_touch_duration_window->selection,
+        pan_recognizer_get_delta_since_prev(recognizer).y);
+      break;
+    case RecognizerEvent_Completed:
+    case RecognizerEvent_Cancelled:
+      selection_layer_touch_pan_ended(s_touch_duration_window->selection);
+      break;
+    default:
+      break;
+  }
+}
+
+static void prv_touch_tap_handler(const Recognizer *recognizer, RecognizerEvent event) {
+  if (!s_touch_duration_window || event != RecognizerEvent_Completed) {
+    return;
+  }
+  selection_layer_touch_tapped(s_touch_duration_window->selection,
+    tap_recognizer_get_tap_point(recognizer));
+}
+
+#endif  // TOUCH_INPUT
+
+
+
+/*******************************************************************************
  * API FUNCTIONS
  */
 
@@ -280,11 +334,30 @@ static void prv_window_load(Window* window){
   status_bar_layer_set_colors(duration_window->status, GColorClear, GColorBlack);
   layer_add_child(root, status_bar_layer_get_layer(duration_window->status));
 
+#if TOUCH_INPUT
+  // touch: swipe vertically to spin the active field, tap a field to select
+  // it, tap the active field to commit, flick sideways to step back. the
+  // bridge is turned off here so these recognizers get the touch stream
+  // instead of synthesised button presses.
+  s_touch_duration_window = duration_window;
+  window_set_touch_bridge_disabled(duration_window->window, true);
+  window_attach_recognizer(duration_window->window,
+    pan_recognizer_create(prv_touch_pan_handler, NULL, PanAxis_Vertical));
+  window_attach_recognizer(duration_window->window,
+    tap_recognizer_create(prv_touch_tap_handler, NULL));
+  window_attach_recognizer(duration_window->window,
+    swipe_recognizer_create(prv_touch_swipe_handler, NULL,
+      SwipeDirection_Left | SwipeDirection_Right));
+#endif
+
   update_sub_text(duration_window);
 }
 
 static void prv_window_unload(Window* window){
   DurationWindow *duration_window = window_get_user_data(window);
+#if TOUCH_INPUT
+  s_touch_duration_window = NULL;
+#endif
   status_bar_layer_destroy(duration_window->status);
   selection_layer_destroy(duration_window->selection);
   text_layer_destroy(duration_window->sub_text);

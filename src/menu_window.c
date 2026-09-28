@@ -34,7 +34,9 @@
 #include <pebble.h>
 #include "menu_window.h"
 #include "countdown_timer.h"
+#include "menu_list.h"
 #include "settings.h"
+#include "touch.h"
 
 // Constants
 #ifdef PBL_ROUND
@@ -75,6 +77,9 @@ struct MenuWindow {
   StatusBarLayer      *status;            //< status bar for Basalt
   MenuWindowCallbacks callbacks;          //< menu layer callbacks
   bool wrap_around;                       //< whether the ends of the list wrap
+#if TOUCH_INPUT
+  DoubleTap double_tap;                   //< the tap-to-open memory
+#endif
 };
 
 
@@ -289,38 +294,13 @@ static void menu_draw_row_callback(GContext* ctx, const Layer *cell_layer, MenuI
 /*
  * move the cursor by "offset" rows
  *
- * Wrap Around decides what a step past either end means: the other end, or
- * nothing. Without it the cursor stops at the ends, which is exactly what the
- * MenuLayer's own click config would have done -- the one thing it cannot do is
- * step over them, and that is why this window walks its list by hand now.
+ * Wrap Around decides what a step past either end means, and the walk itself
+ * is the one every menu list in this app shares (see menu_list.c).
  */
 
 static void menu_move_selection(MenuWindow *menu_window, int16_t offset) {
-  const uint16_t count = menu_get_row_count(menu_window);
-  if (count == 0) {
-    return;
-  }
-  MenuIndex selected = menu_layer_get_selected_index(menu_window->menu);
-  int16_t target = (int16_t)selected.row + offset;
-  if (menu_window->wrap_around) {
-    // a held button can overshoot by more than the list is long, so fold it
-    // rather than assuming one step. the ends meet: a full loop lands back
-    // where it started.
-    target %= (int16_t)count;
-    if (target < 0) {
-      target += (int16_t)count;
-    }
-  } else if (target < 0) {
-    target = 0;
-  } else if (target >= (int16_t)count) {
-    target = (int16_t)count - 1;
-  }
-  if (target == (int16_t)selected.row) {
-    return;
-  }
-  menu_layer_set_selected_index(menu_window->menu,
-                                (MenuIndex) { .section = 0, .row = (uint16_t)target },
-                                MenuRowAlignCenter, true);
+  menu_list_step_selection(menu_window->menu, offset, menu_get_row_count(menu_window),
+                           menu_window->wrap_around);
 }
 
 
@@ -344,6 +324,37 @@ static void menu_select_click_handler(ClickRecognizerRef recognizer, void *conte
   const uint8_t row = (uint8_t)menu_layer_get_selected_index(menu_window->menu).row;
   menu_window->callbacks.clicked(menu_window_row_kind(menu_window, row), row, menu_window);
 }
+
+/*******************************************************************************
+ * TOUCH
+ */
+
+#if TOUCH_INPUT
+
+/*
+ * the system touch navigation moves the menu cursor to a tapped row and then
+ * fires this callback for every tap, whatever moved; the physical SELECT
+ * button never comes through here because menu_click_config_provider owns it,
+ * so a click reaching this callback is always a finger. the first tap on a
+ * row has already done its work -- the cursor is on it -- and only opens when
+ * a second tap lands on the same row inside the double tap window, which is
+ * what the shared DoubleTap memory (see touch.h) decides.
+ */
+
+static void menu_touch_select_callback(MenuLayer *menu_layer, MenuIndex *cell_index,
+                                       void *context) {
+  MenuWindow *menu_window = (MenuWindow*)context;
+  const uint16_t row = (uint16_t)cell_index->row;
+  if (!double_tap_tap(&menu_window->double_tap, row)) {
+    return;
+  }
+  menu_window->callbacks.clicked(menu_window_row_kind(menu_window, (uint8_t)row),
+                                 (uint8_t)row, menu_window);
+}
+
+#endif  // TOUCH_INPUT
+
+
 
 /*
  * UP and DOWN walk the list, repeating while held so the fifteen rows an aplite
@@ -381,6 +392,9 @@ static MenuWindow *menu_window_init(MenuWindow *menu_window,
   // create window
   menu_window->window = window_create();
   menu_window->callbacks = menu_window_callbacks;
+#if TOUCH_INPUT
+  double_tap_reset(&menu_window->double_tap);
+#endif
 #ifdef PBL_PLATFORM_APLITE
   bool icons_ok = (menu_window->play_icon && menu_window->pause_icon);
 #else
@@ -406,6 +420,9 @@ static MenuWindow *menu_window_init(MenuWindow *menu_window,
       .draw_row = menu_draw_row_callback,
 #ifdef PBL_ROUND
       .get_cell_height = menu_get_row_height_callback,
+#endif
+#if TOUCH_INPUT
+      .select_click = menu_touch_select_callback,
 #endif
     });
     // not menu_layer_set_click_config_onto_window: its cursor stops at the ends

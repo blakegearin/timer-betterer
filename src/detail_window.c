@@ -35,6 +35,7 @@
 #include <pebble.h>
 #include "detail_window.h"
 #include "countdown_timer.h"
+#include "touch.h"
 
 #define TEXT_LAYER_MAX_LARGE_CHARACTERS 5
 #define MSEC_IN_SEC 1000
@@ -172,7 +173,7 @@ static void prv_delete_arm_timer_callback(void *context) {
  * edits the timer
  */
 
-static void up_click_handler(ClickRecognizerRef recognizer, void *context) {
+static void prv_up_pressed(void *context) {
   DetailWindow *detail_window = (DetailWindow*)context;
   if (detail_window && detail_window->delete_armed) {
     // confirmed: proceed with delete
@@ -185,13 +186,17 @@ static void up_click_handler(ClickRecognizerRef recognizer, void *context) {
   return detail_window->callbacks.edit_timer(detail_window->countdown_timer, context);
 }
 
+static void up_click_handler(ClickRecognizerRef recognizer, void *context) {
+  prv_up_pressed(context);
+}
+
 /*
  * SELECT click handler callback
  *
  * plays or pauses the timer
  */
 
-static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
+static void prv_select_pressed(void *context) {
   DetailWindow *detail_window = (DetailWindow*)context;
   if (detail_window && detail_window->delete_armed) {
     // ignore SELECT during confirmation
@@ -202,13 +207,17 @@ static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
   return detail_window->callbacks.playpause_timer(detail_window->countdown_timer, context);
 }
 
+static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
+  prv_select_pressed(context);
+}
+
 /*
  * DOWN click handler callback
  *
  * deletes the timer
  */
 
-static void down_click_handler(ClickRecognizerRef recognizer, void *context) {
+static void prv_down_pressed(void *context) {
   DetailWindow *detail_window = (DetailWindow*)context;
   if (!detail_window || !detail_window->countdown_timer) {
     return;
@@ -239,6 +248,10 @@ static void down_click_handler(ClickRecognizerRef recognizer, void *context) {
   detail_window_refresh(detail_window);
 }
 
+static void down_click_handler(ClickRecognizerRef recognizer, void *context) {
+  prv_down_pressed(context);
+}
+
 /*
  * click configuration provider
  */
@@ -251,6 +264,52 @@ static void click_config_provider(void *context) {
   window_single_click_subscribe(BUTTON_ID_SELECT, select_click_handler);
   window_single_click_subscribe(BUTTON_ID_DOWN, down_click_handler);
 }
+
+
+
+/*******************************************************************************
+ * TOUCH
+ */
+
+#if TOUCH_INPUT
+
+// the one live DetailWindow, by the file-static route touch.h describes
+
+static DetailWindow *s_touch_detail_window = NULL;
+
+// a horizontal flick backs out of the window, the gesture the system bridge
+// would have made for us; this window turns the bridge off, so it stands in.
+static void prv_touch_swipe_handler(const Recognizer *recognizer, RecognizerEvent event) {
+  if (!s_touch_detail_window || event != RecognizerEvent_Completed) {
+    return;
+  }
+  if (swipe_recognizer_get_direction(recognizer) &
+    (SwipeDirection_Left | SwipeDirection_Right)) {
+    window_stack_pop(true);
+  }
+}
+
+// a tap on the action bar column acts as the button whose icon sits in that
+// third of the bar.
+static void prv_touch_tap_handler(const Recognizer *recognizer, RecognizerEvent event) {
+  if (!s_touch_detail_window || event != RecognizerEvent_Completed) {
+    return;
+  }
+  GPoint tap = tap_recognizer_get_tap_point(recognizer);
+  GRect bounds = layer_get_bounds(window_get_root_layer(s_touch_detail_window->window));
+  if (tap.x < bounds.size.w - ACTION_BAR_WIDTH) {
+    return;
+  }
+  if (tap.y < bounds.size.h / 3) {
+    prv_up_pressed(s_touch_detail_window);
+  } else if (tap.y < 2 * bounds.size.h / 3) {
+    prv_select_pressed(s_touch_detail_window);
+  } else {
+    prv_down_pressed(s_touch_detail_window);
+  }
+}
+
+#endif  // TOUCH_INPUT
 
 
 
@@ -331,6 +390,21 @@ static void prv_window_load(Window* window){
   action_bar_layer_set_click_config_provider(detail_window->action, click_config_provider);
   action_bar_layer_set_context(detail_window->action, detail_window);
   prv_update_action_icons(detail_window);
+
+#if TOUCH_INPUT
+  // touch: tapping an action bar icon acts as its button, a sideways flick
+  // backs out. this window has no MenuLayer, so the system touch navigation
+  // has nothing to bridge here; the bridge is still turned off so the
+  // recognizers above get the touch stream.
+  s_touch_detail_window = detail_window;
+  window_set_touch_bridge_disabled(detail_window->window, true);
+  window_attach_recognizer(detail_window->window,
+    tap_recognizer_create(prv_touch_tap_handler, NULL));
+  window_attach_recognizer(detail_window->window,
+    swipe_recognizer_create(prv_touch_swipe_handler, NULL,
+      SwipeDirection_Left | SwipeDirection_Right));
+#endif
+
   // create status bar
 #ifdef PBL_ROUND
   int16_t horiz_off = 0;
@@ -346,6 +420,9 @@ static void prv_window_load(Window* window){
 
 static void prv_window_unload(Window* window){
   DetailWindow *detail_window = window_get_user_data(window);
+#if TOUCH_INPUT
+  s_touch_detail_window = NULL;
+#endif
   prv_disarm_delete(detail_window, false);
   status_bar_layer_destroy(detail_window->status);
   action_bar_layer_destroy(detail_window->action);
