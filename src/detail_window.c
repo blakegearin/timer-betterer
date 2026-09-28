@@ -368,6 +368,8 @@ static void prv_window_load(Window* window){
   text_layer_set_text(detail_window->main_text, "00:00");
   text_layer_set_text_alignment(detail_window->main_text, GTextAlignmentCenter);
   text_layer_set_background_color(detail_window->main_text, GColorClear);
+  text_layer_set_text_color(detail_window->main_text,
+                            gcolor_legible_over(detail_window->highlight_color));
   layer_add_child(root, text_layer_get_layer(detail_window->main_text));
   // create sub text
 #ifdef PBL_ROUND
@@ -383,6 +385,8 @@ static void prv_window_load(Window* window){
   text_layer_set_font(detail_window->sub_text, detail_window->small_font);
   text_layer_set_text(detail_window->sub_text, "00:00");
   text_layer_set_background_color(detail_window->sub_text, GColorClear);
+  text_layer_set_text_color(detail_window->sub_text,
+                            gcolor_legible_over(detail_window->highlight_color));
   layer_add_child(root, text_layer_get_layer(detail_window->sub_text));
   // create action bar
   detail_window->action = action_bar_layer_create();
@@ -414,7 +418,10 @@ static void prv_window_load(Window* window){
   detail_window->status = status_bar_layer_create();
   layer_set_frame(status_bar_layer_get_layer(detail_window->status),
     GRect(0, 0, bounds.size.w - horiz_off, STATUS_BAR_LAYER_HEIGHT));
-  status_bar_layer_set_colors(detail_window->status, GColorClear, GColorBlack);
+  // the water level rises past the status bar row, so its glyphs need the
+  // accent's legible colour too, not the black the other windows can afford
+  status_bar_layer_set_colors(detail_window->status, GColorClear,
+                              gcolor_legible_over(detail_window->highlight_color));
   layer_add_child(root, status_bar_layer_get_layer(detail_window->status));
 }
 
@@ -583,6 +590,16 @@ void detail_window_deep_refresh(DetailWindow *detail_window) {
 void detail_window_set_highlight_color(DetailWindow *detail_window,
                                        GColor color) {
   detail_window->highlight_color = color;
+  if (detail_window->window == NULL) {
+    return;
+  }
+  // the accent sits behind the inked text and the status bar glyphs, so a
+  // dark accent must flip them all to white -- the same legible colour the
+  // highlighted rows get in the menu
+  GColor text_color = gcolor_legible_over(color);
+  text_layer_set_text_color(detail_window->main_text, text_color);
+  text_layer_set_text_color(detail_window->sub_text, text_color);
+  status_bar_layer_set_colors(detail_window->status, GColorClear, text_color);
 }
 
 /*
