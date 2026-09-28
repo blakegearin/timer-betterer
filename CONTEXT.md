@@ -16,9 +16,6 @@ A window is named for **what it shows**, not for what the user does on it:
 | `option_window` | the options for one setting |
 | `popup_window` | a popup |
 
-`setting_window` is the tempting wrong name for `duration_window`: it names an
-act, not a display, and collides with `settings_window`.
-
 ## Terms
 
 - **Duration** -- the length dialled in on the duration picker.
@@ -63,6 +60,6 @@ Six targets: `aplite` (Pebble/Pebble Steel), `basalt` (Time/Time Steel),
 The one line that matters: **aplite is the 24 KB platform, where compiled code
 lives in the same budget as data.** Adding a window *type* there costs RAM even
 if it is never pushed -- though an extra instance of a type already compiled in
-costs only a struct and a `Window`, not more code. That is why the settings UI
-is inline rows on aplite and a sub-menu tree (the `List` and `Timer` groups) on
-every other platform, all of it drawn by the one `SettingsWindow` type.
+costs only a struct and a `Window`, not more code. So the settings UI is inline
+rows on aplite and a sub-menu tree (the `List` and `Timer` groups) on every
+other platform, all of it drawn by the one `SettingsWindow` type.

@@ -22,8 +22,7 @@
 #include <pebble.h>
 
 // The platforms this app gives touch input on, tested in one place: every
-// touch feature in the app is #if TOUCH_INPUT, so widening the set is a
-// single edit here.
+// touch feature in the app is #if TOUCH_INPUT.
 #if defined(PBL_PLATFORM_EMERY) || defined(PBL_PLATFORM_GABBRO)
 #define TOUCH_INPUT 1
 #else

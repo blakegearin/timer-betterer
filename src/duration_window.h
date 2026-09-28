@@ -176,8 +176,8 @@ CountdownTimer *duration_window_get_timer(DurationWindow *duration_window);
 /*
  * Function:    duration_window_set_snooze_mode
  * --------------------------------------------
- * Put the picker in Snooze mode -- it dials a snooze delay for the
- * Snooze setting instead of a timer duration, and 00:00:00 is a valid
+ * puts the picker in Snooze mode: it dials a snooze delay for the Snooze
+ * Length setting instead of a timer duration, and 00:00:00 is a valid
  * submission meaning "Off".
  *
  *  duration_window: a pointer to the DurationWindow being switched

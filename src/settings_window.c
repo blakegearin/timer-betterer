@@ -35,7 +35,7 @@
  */
 #ifndef PBL_PLATFORM_APLITE
 
-// Round menu cell heights are unconditional firmware constants (issue 01):
+// Round menu cell heights are unconditional firmware constants:
 // a focused cell holds name over value, an unfocused one only the name.
 #ifdef PBL_ROUND
 #define SETTINGS_CELL_HEIGHT_FOCUSED 68

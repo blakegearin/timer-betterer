@@ -27,13 +27,12 @@
 #include "touch.h"
 
 /*
- * The whole window is excluded on aplite rather than deleted from the build:
- * wscript globs every C file under src/, so in-file exclusion is the only
- * route. Aplite flips its settings inline and cannot afford this file's .text.
+ * Excluded on aplite, which flips its settings inline and cannot afford this
+ * file's .text. See settings_window.c for why the file stays in the build.
  */
 #ifndef PBL_PLATFORM_APLITE
 
-// Firmware geometry (issue 01): a 14px outer circle with a 2px ring and a
+// Firmware geometry: a 14px outer circle with a 2px ring and a
 // 6px filled centre, set in from the right edge by 7px on rect and 10 on
 // emery. There is no SDK helper and no resource for any of it. Round draws
 // no circle at all -- see option_draw_row_callback -- so this is rect-only.
@@ -47,7 +46,7 @@
 #define OPTION_ROUND_TEXT_LEFT_INSET 20
 #define OPTION_RECT_TEXT_LEFT_INSET 6  //< the inset menu_cell_basic_draw uses
 
-// same round menu-cell constants as the settings window (issue 01); without a
+// same round menu-cell constants as the settings window; without a
 // get_cell_height the rows fall to MenuLayer's 44 px default, which centres
 // neither the label nor the circle on the firmware metric
 #ifdef PBL_ROUND

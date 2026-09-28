@@ -246,8 +246,7 @@ static void prv_promote_timer(CountdownTimer *countdown_timer) {
  *
  * the one rule this enforces: a pin exists for a timer if and only if that
  * timer is running and its duration is at least TIMELINE_MIN_LENGTH. Every
- * running/paused transition in the app goes through here, because the five
- * hand-copied versions this replaces had already drifted apart.
+ * running/paused transition in the app goes through here.
  *
  * two orderings are load-bearing:
  *   - delete the pin *before* stopping. countdown_timer_stop rolls the timer's

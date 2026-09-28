@@ -226,9 +226,9 @@ void detail_window_set_highlight_color(DetailWindow *detail_window, GColor color
  * Function:    detail_window_set_delete_immediately
  * -------------------------------------------------
  * sets whether the DOWN button deletes the timer on the first press rather
- * than arming a confirmation. when immediately is false, behaviour is the
- * armed action bar exactly as it shipped; the 2500 ms auto-disarm and the
- * "Timer Deleted" popup are unchanged in both positions.
+ * than arming a confirmation. when immediately is false, the delete arms on
+ * the action bar; the 2500 ms auto-disarm and the "Timer Deleted" popup
+ * apply in both positions.
  *
  *  detail_window: a pointer to the DetailWindow to configure
  *  immediately: true to delete on the first DOWN press

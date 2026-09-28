@@ -39,20 +39,16 @@
 // The on-flash keys. COUNTDOWN_TIMER_PERSIST_KEY and its id sibling stay in
 // main.c -- those are the timer list, not a setting.
 //
-// this key's *value* is part of the on-flash contract: 1.2.6 users already have
-// their sort preference stored under 9938472, so renaming the #define is fine
-// but changing the integer would silently drop their choice on upgrade.
-// the stored int keeps meaning "1 = sort by duration" even though this fork
-// ships duration as the default; the inversion lives in settings_load/write
+// a key's integer is part of the stored contract: renaming the #define is
+// fine, changing the number silently drops what users stored under it. Sort
+// Order's int keeps meaning "1 = sort by duration" even though the shipped
+// default is duration; the inversion lives in settings_load/write
 #define TIMER_SORT_BY_DURATION_PERSIST_KEY 9938472
 #define TIMER_GROUPING_DISABLED_PERSIST_KEY 73849201
 #define TIMER_START_MANUALLY_PERSIST_KEY 51827394
 #define TIMER_DELETE_IMMEDIATELY_PERSIST_KEY 68013925
 #define TIMER_HIGHLIGHT_COLOR_PERSIST_KEY 19283746
-// Snooze is a dialled duration, stored in milliseconds. The old key (37492058)
-// held an index into the list that is gone, so it is no longer read: upgrading
-// users land on the shipped 2-minute default. Mapping saved indexes onto
-// delays here would preserve their choice
+// Snooze is a dialled duration, stored in milliseconds
 #define TIMER_SNOOZE_MS_PERSIST_KEY 84720913
 #define TIMER_WRAP_AROUND_PERSIST_KEY 64718293
 
@@ -64,9 +60,8 @@
 // default. statics zero-initialise and an absent persist key leaves them
 // untouched, so "no key yet" means "the shipped default" with no default table
 // to keep in sync -- and a fresh install lands there automatically. The rule
-// names the variables, not the on-flash ints: a stored value still means what
-// 1.2.6 stored, so the two settings this fork re-defaults are inverted at the
-// load/store boundary.
+// names the variables, not the on-flash ints: stored values keep their own
+// meanings, so two settings are inverted at the load/store boundary.
 static bool s_list_sort_by_last_used = false;
 static bool s_list_grouping_disabled = false;
 // whether a step past either end of the timer list lands on the other end
@@ -95,10 +90,9 @@ static GColor s_highlight_color = GColorMalachite;
  * false static lands, per settings.h, and it is the accessors -- not the table
  * position -- that map a bool to its index. On/Off pairs are listed `Off, On` so
  * they read alike, which is why Confirm Deletion's default (`On`) is the second
- * entry. this is an enum and a string table, not the data-driven descriptor table
- * the spec rejected -- it generates no UI. it exists because aplite renders the
- * same settings as rows in the timer list while the other platforms render them in
- * the settings window: two renderers, one copy.
+ * entry. this is an enum and a string table that generates no UI. it exists
+ * because aplite renders the same settings as rows in the timer list while the
+ * other platforms render them in the settings window: two renderers, one copy.
  */
 static const char *const s_setting_names[SettingCount] = {
   "Sort Order", "Group", "Wrap Around", "Start Mode", "Confirm Deletion",
@@ -284,8 +278,7 @@ void settings_set(SettingId setting, uint8_t option) {
 
 uint8_t settings_option_count(SettingId setting) {
   switch (setting) {
-    // Snooze Length is dialled, not cycled -- the rows that used to ask this
-    // for its seven options push the picker instead
+    // Snooze Length is dialled on the picker, not cycled through options here
 #ifdef PBL_COLOR
     case SettingColor:
       return COLOR_OPTIONS;
@@ -449,21 +442,20 @@ GColor settings_color(void) {
 
 void settings_load(void) {
   if (persist_exists(TIMER_SORT_BY_DURATION_PERSIST_KEY)) {
-    // stored int keeps 1.2.6's meaning: 1 = sort by duration. this fork
-    // defaults to duration, so the variable is its inverse
+    // the stored int means 1 = sort by duration; the default is duration, so
+    // the variable is its inverse
     s_list_sort_by_last_used = (persist_read_int(TIMER_SORT_BY_DURATION_PERSIST_KEY) == 0);
   }
   if (persist_exists(TIMER_GROUPING_DISABLED_PERSIST_KEY)) {
-    // a key this fork introduced, so it stores the bool's own meaning: no
-    // 1.2.6 contract to honour and no inversion at the load boundary
+    // stores the bool's own meaning: no inversion at the load boundary
     s_list_grouping_disabled = (persist_read_int(TIMER_GROUPING_DISABLED_PERSIST_KEY) != 0);
   }
   if (persist_exists(TIMER_WRAP_AROUND_PERSIST_KEY)) {
-    // the same: a key of this fork's, storing its bool's own meaning
+    // the same: stores the bool's own meaning
     s_list_wrap_around_enabled = (persist_read_int(TIMER_WRAP_AROUND_PERSIST_KEY) != 0);
   }
   if (persist_exists(TIMER_START_MANUALLY_PERSIST_KEY)) {
-    // same contract: 1 = start manually, and the fork's default inverts it
+    // 1 = start manually; the default is automatic, so the variable is its inverse
     s_timer_start_automatically = (persist_read_int(TIMER_START_MANUALLY_PERSIST_KEY) == 0);
   }
   if (persist_exists(TIMER_DELETE_IMMEDIATELY_PERSIST_KEY)) {

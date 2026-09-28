@@ -33,12 +33,9 @@
  *
  * The rest come in two groups, and the prefix on each name says which: the
  * `SettingList` three change how the timer list behaves, the `SettingTimer` three
- * how a timer itself behaves. The prefixes exist because a bare `SettingGroup` or
- * `SettingDelete` begs the question of what is being grouped or deleted, and
- * because on every platform but aplite each group is a sub-menu of its own --
- * naming them is what lets the code say which one it means. They stay adjacent in
- * this enum because that order is also the order aplite renders its inline rows
- * in.
+ * how a timer itself behaves -- on every platform but aplite each group is a
+ * sub-menu of its own. The two groups stay adjacent here because enum order is
+ * also the order aplite renders its inline rows in.
  */
 
 typedef enum {
@@ -82,8 +79,8 @@ typedef enum {
  * ----------------------------------------
  * read and write one setting as an option index. `settings_set` changes the
  * value and nothing else -- the reaction a change deserves (re-sort the view,
- * tell the detail window, recolour the app) is the caller's, because those live
- * in windows settings.c has no business knowing about.
+ * tell the detail window, recolour the app) is the caller's, because those
+ * reactions belong to the windows.
  */
 
 uint8_t settings_get(SettingId setting);
@@ -118,8 +115,8 @@ const char *settings_value(SettingId setting);
  * the option list a setting offers, for the option window to draw: the labels
  * (the two of a paired setting, the whole palette for Accent Color), and the
  * swatches beside them -- NULL for every setting but Accent Color, and NULL
- * for Snooze Length too now that it is dialled on the picker instead
- * of chosen from a list. `settings_option_count` says how many labels.
+ * for Snooze Length, which is dialled on the picker. `settings_option_count`
+ * says how many labels.
  */
 
 const char *const *settings_option_labels(SettingId setting);
@@ -171,9 +168,8 @@ GColor settings_color(void);
 
 /*
  * settings_load reads every setting from flash; a key that is absent leaves the
- * shipped default (the false static) in place, so an upgrade needs no migration.
- * settings_write stores them all back. Called from main.c's initialize and
- * deinitialize.
+ * shipped default (the false static) in place. settings_write stores them all
+ * back. Called from main.c's initialize and deinitialize.
  */
 
 void settings_load(void);

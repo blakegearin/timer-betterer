@@ -314,9 +314,8 @@ static void menu_down_click_handler(ClickRecognizerRef recognizer, void *context
 }
 
 /*
- * the row the cursor is on is the row a click acts on. this is the callback the
- * MenuLayer's own config used to make: given the selected index, tell main.c
- * what kind of row it landed on.
+ * the row the cursor is on is the row a click acts on: given the selected
+ * index, tell main.c what kind of row it landed on.
  */
 
 static void menu_select_click_handler(ClickRecognizerRef recognizer, void *context) {
