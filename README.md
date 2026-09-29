@@ -70,22 +70,49 @@ A countdown timer for Pebble smartwatches, forked from Pebble's `pebble-timer` a
 
 ## Getting Started
 
-Requires Python — `uv` or `pipx` keep the Pebble tool off the system Python.
+1. Clone: `git clone https://github.com/blakegearin/timer-betterer.git`
+2. Open: `cd timer-betterer`
+3. Install [`uv`](https://docs.astral.sh/uv/getting-started/installation/) or [`pipx`](https://pipx.pypa.io/latest/how-to/install-pipx.html)
+4. Install pebble-tool
+   - uv: `uv tool install pebble-tool`
+   - pipx: `pipx install pebble-tool`
+5. Install SDK: `pebble sdk install latest`
 
-1. Clone: `git clone https://github.com/blakegearin/timer-betterer.git && cd timer-betterer`
-2. Install the community Pebble tool, which provides `pebble` on PATH: `uv tool install pebble-tool`
-3. Install an SDK, which brings its own arm toolchain and emulator: `pebble sdk install 4.33.1`
-4. Build for all six platforms, into `build/`: `pebble build`
-5. Run it on an emulator: `pebble install --emulator basalt` — or `aplite|basalt|chalk|diorite|emery|gabbro`
+## Running
+
+### On Real Hardware
+
+1. Open the Pebble app
+2. Navigate to the Devices tab
+3. Select the kebab icon to open the device menu
+4. Enable toggle for "Dev Connection"
+5. Build: `make build`
+6. Install: `make sideload`
+
+### Emulator
+
+- Start: `make run PLAT=<platform>`
+
+  - Pebble / Pebble Steel: `aplite`
+  - Pebble Time / Pebble Time Steel: `basalt`
+  - Pebble Time Round: `chalk`
+  - Pebble 2: `diorite`
+  - Pebble Time 2: `emery`
+  - Pebble 2 Duo: `gabbro`
+
+- Stop: `make kill`
+
+Control the emulator with a keyboard or mouse.
+
+- Up button: `Up`
+- Down button: `Down`
+- Select button: `Enter`
+- Back button: `Delete` / `Backspace`
+- Tapping: mouse
+  - Only on touch-capable platforms: `chalk`, `emery`, `gabbro`
 
 ## Credits
 
-- Fork of [coredevices/pebble-timer](https://github.com/coredevices/pebble-timer),
-  originally by Eric Phillips for Pebble
-- The settings-row icon is `Pebble_25x25_Settings.svg` from
-  [pebble-dev/iconography](https://github.com/pebble-dev/iconography)
-  (Apache 2.0), as are the 80×80 Timeline-pin drawings
-- The device artwork in `tools/renders/svg/` is official Pebble press art
-  from [developer.repebble.com](https://developer.repebble.com); the
-  screen geometry in `tools/renders.sh` mirrors the developer site's own
-  `.pebble-screenshot` stylesheet
+- Fork of [coredevices/pebble-timer](https://github.com/coredevices/pebble-timer), originally by Eric Phillips for Pebble
+- The settings-row icon is `Pebble_25x25_Settings.svg` from [pebble-dev/iconography](https://github.com/pebble-dev/iconography) (Apache 2.0), as are the 80×80 Timeline-pin drawings
+- The device renders use official Pebble press art from [developer.repebble.com](https://developer.repebble.com)
