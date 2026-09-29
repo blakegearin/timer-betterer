@@ -1,8 +1,7 @@
-# Aplite's variant of the README tour: it has no settings windows at all --
-# the settings live as inline rows on the menu itself -- so the third shot
-# walks down into them, far enough that the settings fill the screen rather
-# than the timer row riding at the top, and flips one row to its second
-# option, cursor parked where the colour platforms park on Accent Color.
+# Diorite (Pebble 2) gets the sub-menu settings tree but has no accent
+# colour, so it takes the first three shots of the colour tour and no fourth.
+# The settings cursor parks on the Timer row -- the last row it has -- to
+# mirror where the colour platforms park on Accent Color.
 
 wait 4              # the app's first window needs to be up before presses land
 press select        # off hours
@@ -15,6 +14,7 @@ press select        # open the timer
 fasttick 12:33:42 select detail   # live 0:42 in one session (see readme-tour.scene)
 press select        # freeze the 0:42 (or dismiss if the island slipped)
 press back          # menu
-press down 2        # down into the inline settings rows
-press select        # flip it in place
-shot settings       # the inline settings filling the screen, one row flipped
+press down          # to the cog row
+press select        # Settings
+press down 1        # to the Timer group row
+shot settings       # the settings menu with a row selected

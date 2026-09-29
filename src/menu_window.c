@@ -48,7 +48,11 @@
 #define MENU_CELL_CENTERED false
 #define MENU_CELL_PROG_THICK 2
 #endif
-#define MENU_CELL_TEXT_Y_BUFF_RATIO 0.2
+// Lift the text a fifth of its height off the progress bar below. Divide in
+// integers: a `* 0.2` literal promotes to double and drags ~1.3 KB of libgcc
+// soft-float helpers into aplite's 24 KB, whose heap cannot survive that.
+// floor(h * 0.2) == floor(h / 5) for positive h, so the pixels do not move.
+#define MENU_CELL_TEXT_Y_BUFF_DIV 5
 #define MENU_LAYER_DEFAULT_CELL_HEIGHT 52
 #define MENU_LAYER_SELECTED_CELL_HEIGHT 65
 // Hold-to-repeat on the two scrolling buttons, at the rate the duration picker's
@@ -171,7 +175,7 @@ static void menu_cell_draw(GContext *ctx, const Layer *layer, char *title, GBitm
     txt_bounds.origin.x = (lay_bounds.size.w - txt_bounds.size.w - img_bounds.size.w) / 2 *
       center_text + img_bounds.size.w;
     txt_bounds.origin.y = (lay_bounds.size.h - txt_bounds.size.h - prg_bounds.size.h) / 2 -
-      txt_bounds.size.h * MENU_CELL_TEXT_Y_BUFF_RATIO;
+      txt_bounds.size.h / MENU_CELL_TEXT_Y_BUFF_DIV;
     graphics_draw_text(ctx, title, font, txt_bounds, GTextOverflowModeFill, GTextAlignmentLeft,
       NULL);
   }

@@ -4,11 +4,11 @@
 # than in the Makefile, where shell quoting and make 3.81's pattern-rule
 # behaviour made a mess of them.
 #
-# Each platform gets the tour scene, written straight into the assets folder
-# (that is screenshots.sh's --output, which it wipes first). The four colour
-# platforms then get the picker scene too, and its three shots are copied in
-# beside the tour's: the picker scene runs into tmp/, because screenshots.sh
-# wipes --output, and pointing it at the assets folder would erase the tour.
+# Each platform gets one tour scene, written straight into the assets folder
+# (that is screenshots.sh's --output, which it wipes first). The colour
+# platforms shoot four screens -- list, detail, settings, and the accent
+# colour picker, all in Picton Blue; diorite shoots the same tour without
+# the colour leg; aplite's tour ends on its inline settings rows.
 #
 # Usage:
 #   tools/shots.sh                 all six platforms, concurrently
@@ -28,8 +28,8 @@ ALL=(aplite basalt chalk diorite emery gabbro)
 COLOUR=(basalt chalk emery gabbro)
 BASELINED=(aplite basalt chalk)
 TOUR="$ROOT/tools/scenes/readme-tour.scene"
+TOUR_DIO="$ROOT/tools/scenes/readme-diorite.scene"
 TOUR_BW="$ROOT/tools/scenes/readme-aplite.scene"
-COLOR="$ROOT/tools/scenes/color-picker.scene"
 EMPTY="$ROOT/tools/scenes/menu-empty.scene"
 SHOOTER="$ROOT/tools/screenshots.sh"
 ASSETS="$ROOT/assets/screenshots"
@@ -54,13 +54,9 @@ has() { local x="$1"; shift; [[ " $* " == *" $x "* ]]; }
 run_plat() {
   local plat="$1"
   local scene=$TOUR
+  has "$plat" diorite && scene=$TOUR_DIO
   has "$plat" aplite && scene=$TOUR_BW
-  "$SHOOTER" -B -p "$plat" -w -o "$ASSETS/$plat" "$scene"
-  if has "$plat" "${COLOUR[@]}"; then
-    "$SHOOTER" -B -p "$plat" -w "$COLOR"
-    cp "$ROOT"/tmp/shots/color-picker/"$plat"/{01-color-picker,02-color-chosen,03-color-list}.png \
-      "$ASSETS/$plat/"
-  fi
+  "$SHOOTER" -B -p "$plat" -w -t 12:34:00 -o "$ASSETS/$plat" "$scene"
 }
 
 if [[ $check -eq 1 ]]; then

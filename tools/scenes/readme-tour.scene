@@ -1,21 +1,50 @@
-# The app's screens on the five sub-menu platforms, from a wiped state.
-# Used to refresh assets/screenshots/<platform>/ and as the settings-feature
-# regression scene:
+# The app's screens on the four colour platforms, from a wiped state, in the
+# README's order: the list with a one-minute timer selected, that timer
+# caught mid-run at 0:42 in the detail window, the settings with the Accent
+# Color row selected, and the picker with Picton Blue chosen.
 #
-#   tools/screenshots.sh -p basalt -w -o tmp/shots/readme tools/scenes/readme-tour.scene
+# The first three shots wear the shipped Malachite default; the accent is
+# applied on the way to the picker, so the last shot is the only one in
+# Picton Blue -- it is the shot about choosing it.
+#
+# The detail shot is taken while the timer is still running -- the pause
+# glyph, not the play one, is what a live countdown looks like -- and it
+# must say 0:42 with the status bar at 12:34. That pair can only exist on a
+# clock pin's island: the countdown reads the wall clock, every capture
+# pins that clock to 12:34:00, and pypkjs re-syncs it back to the machine's
+# real time a couple of seconds after any pin -- a leaked tick lands the
+# timer hours past zero (Time's Up!) before a CLI-paced chain finishes.
+# fasttick therefore does the whole dance in one websocket session: pin
+# 12:33:42, press start (the timer ends 12:34:42), re-pin 12:34:00 every
+# 100ms across a redraw tick -- the re-sync deadline slides forward with
+# every pin, so the island never dies -- and grab the frame: ~0:42, live.
+# The pause press after it is insurance either way (SELECT also dismisses
+# the expiry popup) and keeps the timer frozen for the walk to the settings
+# shots. See tools/fasttick.py.
+#
+#   tools/screenshots.sh -p emery -w -t 12:34:00 -o tmp/shots/readme tools/scenes/readme-tour.scene
 
-note 25-minute timer so the pin branch is live in the detail shot
+note the app opens straight to the duration picker when there are no timers
 wait 4              # the app's first window needs to be up before presses land
+note dial one minute
 press select        # off hours
-press up 25         # twenty-five minutes
+press up 1          # one minute
 press select        # off minutes
-press select        # confirm -- detail opens
-shot detail
+press select        # confirm -- detail opens, not started
 press back          # menu, cursor on the timer row
+shot list           # the main list, 1:00 selected
+note run it down to 42 seconds
+press select        # open the timer
+fasttick 12:33:42 select detail   # pin, start, hold, frame -- see the header
+press select        # freeze the 0:42 (or dismiss if the island slipped)
+press back          # menu
 press down          # to the cog row
-shot menu
 press select        # Settings
-shot settings
-press select        # the List row, the three list settings' own sub-menu
-press select        # the Sort Order radio list
-shot options
+press down 2        # past the two group rows to Accent Color, the last row
+shot settings       # the settings menu with the Accent Color row selected
+press select        # the colour picker, opening on Malachite, the shipped default
+note choose Picton Blue
+press down          # to Picton Blue, next in the palette
+press select        # apply -- pops back to settings, everything wears blue now
+press select        # back into the picker, opening on the chosen colour
+shot color          # the accent colour menu with Picton Blue selected

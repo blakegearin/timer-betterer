@@ -17,54 +17,54 @@ A countdown timer for Pebble smartwatches, forked from Pebble's `pebble-timer` a
 <details open>
 <summary>Pebble Time 2</summary>
 
-| Detail | List | Settings | Options | Accent Color |
-| ------ | ---- | -------- | ------- | ------------ |
-| ![detail](assets/screenshots/emery/01-detail.png) | ![menu](assets/screenshots/emery/02-menu.png) | ![settings](assets/screenshots/emery/03-settings.png) | ![options](assets/screenshots/emery/04-options.png) | ![color](assets/screenshots/emery/01-color-picker.png) |
+| List | Timer | Settings | Accent Color |
+| ---- | ----- | -------- | ------------ |
+| <img src="assets/renders/emery/01-list.png" alt="list" width="146"> | <img src="assets/renders/emery/02-detail.png" alt="timer" width="146"> | <img src="assets/renders/emery/03-settings.png" alt="settings" width="146"> | <img src="assets/renders/emery/04-color.png" alt="color" width="146"> |
 
 </details>
 
 <details>
 <summary>Pebble 2 Duo</summary>
 
-| Detail | List | Settings | Options | Accent Color |
-| ------ | ---- | -------- | ------- | ------------ |
-| ![detail](assets/screenshots/gabbro/01-detail.png) | ![menu](assets/screenshots/gabbro/02-menu.png) | ![settings](assets/screenshots/gabbro/03-settings.png) | ![options](assets/screenshots/gabbro/04-options.png) | ![color](assets/screenshots/gabbro/01-color-picker.png) |
+| List | Timer | Settings | Accent Color |
+| ---- | ----- | -------- | ------------ |
+| <img src="assets/renders/gabbro/01-list.png" alt="list" width="165"> | <img src="assets/renders/gabbro/02-detail.png" alt="timer" width="165"> | <img src="assets/renders/gabbro/03-settings.png" alt="settings" width="165"> | <img src="assets/renders/gabbro/04-color.png" alt="color" width="165"> |
 
 </details>
 
 <details>
 <summary>Pebble 2</summary>
 
-| Detail | List | Settings | Options |
-| ------ | ---- | -------- | ------- |
-| ![detail](assets/screenshots/diorite/01-detail.png) | ![menu](assets/screenshots/diorite/02-menu.png) | ![settings](assets/screenshots/diorite/03-settings.png) | ![options](assets/screenshots/diorite/04-options.png) |
+| List | Timer | Settings |
+| ---- | ----- | -------- |
+| <img src="assets/renders/diorite/01-list.png" alt="list" width="110"> | <img src="assets/renders/diorite/02-detail.png" alt="timer" width="110"> | <img src="assets/renders/diorite/03-settings.png" alt="settings" width="110"> |
 
 </details>
 
 <details>
 <summary>Pebble Time Round</summary>
 
-| Detail | List | Settings | Options | Accent Color |
-| ------ | ---- | -------- | ------- | ------------ |
-| ![detail](assets/screenshots/chalk/01-detail.png) | ![menu](assets/screenshots/chalk/02-menu.png) | ![settings](assets/screenshots/chalk/03-settings.png) | ![options](assets/screenshots/chalk/04-options.png) | ![color](assets/screenshots/chalk/01-color-picker.png) |
+| List | Timer | Settings | Accent Color |
+| ---- | ----- | -------- | ------------ |
+| <img src="assets/renders/chalk/01-list.png" alt="list" width="145"> | <img src="assets/renders/chalk/02-detail.png" alt="timer" width="145"> | <img src="assets/renders/chalk/03-settings.png" alt="settings" width="145"> | <img src="assets/renders/chalk/04-color.png" alt="color" width="145"> |
 
 </details>
 
 <details>
 <summary>Pebble Time / Time Steel</summary>
 
-| Detail | List | Settings | Options | Accent Color |
-| ------ | ---- | -------- | ------- | ------------ |
-| ![detail](assets/screenshots/basalt/01-detail.png) | ![menu](assets/screenshots/basalt/02-menu.png) | ![settings](assets/screenshots/basalt/03-settings.png) | ![options](assets/screenshots/basalt/04-options.png) | ![color](assets/screenshots/basalt/01-color-picker.png) |
+| List | Timer | Settings | Accent Color |
+| ---- | ----- | -------- | ------------ |
+| <img src="assets/renders/basalt/01-list.png" alt="list" width="134"> | <img src="assets/renders/basalt/02-detail.png" alt="timer" width="134"> | <img src="assets/renders/basalt/03-settings.png" alt="settings" width="134"> | <img src="assets/renders/basalt/04-color.png" alt="color" width="134"> |
 
 </details>
 
 <details>
 <summary>Pebble / Pebble Steel</summary>
 
-| Detail | List | Flipped |
-| ------ | ---- | ------- |
-| ![detail](assets/screenshots/aplite/01-detail.png) | ![menu](assets/screenshots/aplite/02-menu.png) | ![flipped](assets/screenshots/aplite/03-flipped.png) |
+| List | Timer | Settings |
+| ---- | ----- | -------- |
+| <img src="assets/renders/aplite/01-list.png" alt="list" width="123"> | <img src="assets/renders/aplite/02-detail.png" alt="timer" width="123"> | <img src="assets/renders/aplite/03-settings.png" alt="settings" width="123"> |
 
 </details>
 
@@ -85,3 +85,7 @@ Requires Python — `uv` or `pipx` keep the Pebble tool off the system Python.
 - The settings-row icon is `Pebble_25x25_Settings.svg` from
   [pebble-dev/iconography](https://github.com/pebble-dev/iconography)
   (Apache 2.0), as are the 80×80 Timeline-pin drawings
+- The device artwork in `tools/renders/svg/` is official Pebble press art
+  from [developer.repebble.com](https://developer.repebble.com); the
+  screen geometry in `tools/renders.sh` mirrors the developer site's own
+  `.pebble-screenshot` stylesheet

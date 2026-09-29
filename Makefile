@@ -11,6 +11,7 @@
 ##   make clean               remove build/ (screenshots live in tmp/, ignored)
 ##   make shots               refresh assets/screenshots/ for every platform
 ##   make shot-<platform>     ...for one platform (e.g. make shot-chalk)
+##   make renders             composite the shots into device frames (assets/renders/)
 ##   make check               diff the empty menu against the upstream baselines
 PLATFORMS := aplite basalt chalk diorite emery gabbro
 SHOTSET   := tools/shots.sh
@@ -19,7 +20,7 @@ PLAT ?= basalt
 
 .NOTPARALLEL:
 
-.PHONY: help build run kill clean shots check $(PLATFORMS:%=shot-%)
+.PHONY: help build run kill clean shots renders check $(PLATFORMS:%=shot-%)
 
 help:
 	@sed -n '/^##/s/^## \{0,1\}//p' Makefile
@@ -46,6 +47,10 @@ clean:
 
 shots:
 	$(SHOTSET)
+	tools/renders.sh
+
+renders:
+	tools/renders.sh
 
 # An explicit list, not a shot-% pattern rule: macOS ships GNU make 3.81,
 # which silently skips pattern rules once .PHONY has created empty entries

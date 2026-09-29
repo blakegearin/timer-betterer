@@ -32,6 +32,8 @@
 #   press <back|up|select|down> [count]   press a button, count times
 #   hold  <button> [ms]                   long press (default 1000ms)
 #   wait  <seconds>                       let an animation settle
+#   fasttick <pin> <button> <name>        pin, press, hold, capture -- one
+#                                         session, for running countdowns
 #   shot  <name>                          capture <name>.png
 #   note  <text>                          print a line to the console
 #
@@ -253,6 +255,22 @@ while IFS= read -r line || [[ -n "$line" ]]; do
       ;;
     wait) sleep "$arg" ;;
     note) echo "  -- $rest" ;;
+    fasttick)
+      # fasttick <pinA> <button> <name>: pin A, press, re-pin FIXED_TIME
+      # across a redraw tick, capture -- all in one websocket, by
+      # tools/fasttick.py run on the pebble tool's own python. The only
+      # way to catch a *running* countdown on a pinned clock: a CLI call
+      # per op spends more time in pypkjs' re-sync than in the pin's
+      # island, and every leaked tick expires the timer (Time's Up!).
+      [[ "$FIXED_TIME" != "none" ]] || die "fasttick needs a -t pin time (FIXED_TIME=none)"
+      step=$((step+1))
+      name="$(printf '%02d-%s' "$step" "$(echo "$line" | awk '{print $4}')")"
+      "$(head -n1 "$(command -v pebble)" | sed 's/^#!//')" \
+        "$(dirname "${BASH_SOURCE[0]}")/fasttick.py" \
+        "$PLATFORM" "$arg" "$(echo "$line" | awk '{print $3}')" "$FIXED_TIME" "$OUT/$name.png" \
+        || die "fasttick failed"
+      echo "  shot $name (fasttick)"
+      ;;
     shot)
       step=$((step+1))
       name="$(printf '%02d-%s' "$step" "$arg")"
