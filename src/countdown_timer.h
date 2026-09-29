@@ -174,11 +174,15 @@ CountdownTimer *countdown_timer_check_ended(CountdownTimer **timer_array,
 /*
  * Function:    countdown_timer_list_add
  * -------------------------------------
- * adds an existing CountdownTimer to an array of timers
- * and allocates more space if necessary
+ * adds an existing CountdownTimer to the front of an array of timers
+ *
+ * the array holds at most timer_array_max entries and nothing is evicted to
+ * make room: a full list rejects the add, so the caller owns the capacity
+ * decision (and the new timer, if the add is rejected). main.c hides its "+"
+ * row at capacity, making a rejected add unreachable from the UI.
  *
  *  timer_array: the array of timers to be added to (double pointer)
- *  timer_array_size: the size of the array
+ *  timer_array_max: the capacity of the array
  *  timer_array_count: pointer to total number of timers in the array
  *  countdown_timer: a pointer to the timer being added
  */

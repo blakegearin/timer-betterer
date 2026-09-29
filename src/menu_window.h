@@ -55,7 +55,7 @@
  */
 
 typedef enum {
-  MenuRowAdd,       //< the "+" row, always row 0
+  MenuRowAdd,       //< the "+" row, row 0 while the list has room; gone at capacity
   MenuRowTimer,     //< one timer
   MenuRowSettings,  //< the cog row that opens the settings window
   MenuRowSetting,   //< one inline setting row (aplite only)
@@ -84,6 +84,18 @@ typedef CountdownTimer* (*MenuWindowGetTimer)(uint8_t index, void *context);
  */
 
 typedef uint8_t (*MenuWindowGetTimerCount)(void *context);
+
+
+
+/*
+ * Callback:    MenuWindowIsFull
+ * -----------------------------
+ * gets whether the timer list has reached its capacity: the "+" row hides
+ * itself at that point, so the list forces a delete or an edit instead of
+ * ever evicting a timer
+ */
+
+typedef bool (*MenuWindowIsFull)(void *context);
 
 
 
@@ -130,6 +142,7 @@ typedef void (*MenuWindowClickCallback)(MenuRowKind kind, uint8_t row, void *con
 typedef struct MenuWindowCallbacks {
   MenuWindowGetTimer get_timer;
   MenuWindowGetTimerCount get_timer_count;
+  MenuWindowIsFull is_full;
   MenuWindowGetSettingName get_setting_name;
   MenuWindowGetSettingValue get_setting_value;
   MenuWindowClickCallback clicked;

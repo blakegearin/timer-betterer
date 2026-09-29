@@ -106,21 +106,28 @@ static uint16_t menu_get_num_sections_callback(MenuLayer *menu_layer, void *cont
 /*
  * row layout of the menu list, in one place
  *
- * rows are [0] the "+" add cell, [1..timer_count] the timers, and below them
- * either the permanent cog row or, on aplite, one permanent row per setting.
- * every site that maps between rows and timers classifies through
- * menu_window_row_kind.
+ * rows are [0] the "+" add cell -- while the list has room, at capacity it
+ * hides itself and the timers start at row 0 instead -- then [1..timer_count]
+ * (or [0..] when the add row is gone) the timers, and below them either the
+ * permanent cog row or, on aplite, one permanent row per setting. every site
+ * that maps between rows and timers classifies through menu_window_row_kind,
+ * and every offset comes through menu_get_add_row_count so no site has to
+ * know whether the add row is there today.
  */
 
 static uint8_t menu_get_timer_count(MenuWindow *menu_window) {
   return menu_window->callbacks.get_timer_count(menu_window);
 }
 
+static uint8_t menu_get_add_row_count(MenuWindow *menu_window) {
+  return menu_window->callbacks.is_full(menu_window) ? 0 : 1;
+}
+
 static uint16_t menu_get_row_count(MenuWindow *menu_window) {
 #ifdef PBL_PLATFORM_APLITE
-  return menu_get_timer_count(menu_window) + 1 + SettingCount;
+  return menu_get_timer_count(menu_window) + menu_get_add_row_count(menu_window) + SettingCount;
 #else
-  return menu_get_timer_count(menu_window) + 2;
+  return menu_get_timer_count(menu_window) + menu_get_add_row_count(menu_window) + 1;
 #endif
 }
 
@@ -247,8 +254,8 @@ static void menu_draw_row_callback(GContext* ctx, const Layer *cell_layer, MenuI
       break;
     }
     case MenuRowTimer: {
-      CountdownTimer *countdown_timer = menu_window->callbacks.get_timer(cell_index->row - 1,
-                                                                         context);
+      CountdownTimer *countdown_timer = menu_window->callbacks.get_timer(
+        cell_index->row - menu_get_add_row_count(menu_window), context);
       char *buff = countdown_timer_format_own_buff(countdown_timer);
       GBitmap *icon = countdown_timer_get_paused(countdown_timer) ?
                       menu_window->pause_icon : menu_window->play_icon;
@@ -548,7 +555,7 @@ void menu_window_select_row(MenuWindow *menu_window, uint8_t row) {
  */
 
 void menu_window_select_timer_index(MenuWindow *menu_window, uint8_t view_index) {
-  menu_window_select_row(menu_window, view_index + 1);
+  menu_window_select_row(menu_window, view_index + menu_get_add_row_count(menu_window));
 }
 
 
@@ -558,10 +565,11 @@ void menu_window_select_timer_index(MenuWindow *menu_window, uint8_t view_index)
  */
 
 MenuRowKind menu_window_row_kind(MenuWindow *menu_window, uint8_t row) {
-  if (row == 0) {
+  const uint8_t add_rows = menu_get_add_row_count(menu_window);
+  if (row < add_rows) {
     return MenuRowAdd;
   }
-  if (row <= menu_get_timer_count(menu_window)) {
+  if (row < add_rows + menu_get_timer_count(menu_window)) {
     return MenuRowTimer;
   }
 #ifdef PBL_PLATFORM_APLITE
@@ -581,7 +589,7 @@ int16_t menu_window_row_to_timer_index(MenuWindow *menu_window, uint8_t row) {
   if (menu_window_row_kind(menu_window, row) != MenuRowTimer) {
     return -1;
   }
-  return (int16_t)row - 1;
+  return (int16_t)(row - menu_get_add_row_count(menu_window));
 }
 
 
@@ -596,7 +604,7 @@ int16_t menu_window_row_to_setting_index(MenuWindow *menu_window, uint8_t row) {
   if (menu_window_row_kind(menu_window, row) != MenuRowSetting) {
     return -1;
   }
-  return (int16_t)(row - menu_get_timer_count(menu_window) - 1);
+  return (int16_t)(row - menu_get_add_row_count(menu_window) - menu_get_timer_count(menu_window));
 }
 
 

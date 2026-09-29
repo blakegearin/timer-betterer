@@ -231,12 +231,14 @@ CountdownTimer *countdown_timer_check_ended(CountdownTimer **timer_array,
 
 void countdown_timer_list_add(CountdownTimer **timer_array, uint8_t timer_array_max,
                               uint8_t *timer_array_count, CountdownTimer *countdown_timer) {
-  if ((*timer_array_count) == timer_array_max) {
-    countdown_timer_destroy(timer_array[timer_array_max - 1]);
-  } else {
-    (*timer_array_count)++;
+  // capacity is the caller's, and nothing is ever evicted: a full list
+  // rejects the add. main.c checks before creating, so the guard only
+  // stands against a caller that forgot to.
+  if ((*timer_array_count) >= timer_array_max) {
+    return;
   }
-  memmove(&timer_array[1], &timer_array[0], sizeof(CountdownTimer*) * (timer_array_max - 1));
+  (*timer_array_count)++;
+  memmove(&timer_array[1], &timer_array[0], sizeof(CountdownTimer*) * ((*timer_array_count) - 1));
   timer_array[0] = countdown_timer;
 }
 

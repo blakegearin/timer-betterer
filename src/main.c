@@ -25,7 +25,7 @@
 #define COUNTDOWN_TIMER_ID_PERSIST_KEY 3568356
 #define PERSIST_VERSION 1
 #define PERSIST_VERSION_KEY 46134672
-#define COUNTDOWN_TIMERS_MAX 8
+#define COUNTDOWN_TIMERS_MAX 16
 #define TIMER_MIN_LENGTH 1000 // milliseconds
 #define TIMELINE_MIN_LENGTH 900000 // milliseconds
 #define INACTIVITY_THRESHOLD 900000 // length of time before refresh throttling in milliseconds
@@ -547,17 +547,26 @@ static void duration_window_complete_callback(int64_t duration, void *context) {
 
   // check if new timer or editing
   if (countdown_timer == NULL) {
-    countdown_timer = countdown_timer_create(duration, &s_countdown_timer_id_max);
-    // list_add destroys the tail timer when full, and it knows nothing about
-    // Timeline pins -- per the pin rule, that is this layer's job. The victim
-    // is the storage tail, and only a running one of at least TIMELINE_MIN_LENGTH
-    // can own a pin.
-    if (s_countdown_timers_count == COUNTDOWN_TIMERS_MAX) {
-      CountdownTimer *evicted = s_countdown_timers[COUNTDOWN_TIMERS_MAX - 1];
-      if (!countdown_timer_get_paused(evicted) &&
-          countdown_timer_get_duration(evicted) >= TIMELINE_MIN_LENGTH) {
-        phone_delete_pin(evicted);
+    // Capacity is decided here, at the only path that adds a timer, and it
+    // rejects rather than evicts: nothing is ever destroyed to make room.
+    // The "+" row hides itself at capacity (see menu_window.c), so reaching
+    // this guard full is a UI bug, not a user choice; pop back to the list
+    // the way the too-short branch above does.
+    if (s_countdown_timers_count >= COUNTDOWN_TIMERS_MAX) {
+      duration_window_pop(duration_window, true);
+      if (s_app_timer != NULL) {
+        app_timer_reschedule(s_app_timer, MIN_REFRESH_DELAY);
       }
+      return;
+    }
+    countdown_timer = countdown_timer_create(duration, &s_countdown_timer_id_max);
+    if (countdown_timer == NULL) {
+      // malloc failed; countdown_timer_create has already logged it
+      duration_window_pop(duration_window, true);
+      if (s_app_timer != NULL) {
+        app_timer_reschedule(s_app_timer, MIN_REFRESH_DELAY);
+      }
+      return;
     }
     countdown_timer_list_add(s_countdown_timers, COUNTDOWN_TIMERS_MAX,
       &s_countdown_timers_count, countdown_timer);
@@ -712,6 +721,19 @@ static CountdownTimer *menu_window_get_timer_callback(uint8_t index, void *conte
 
 static uint8_t menu_window_get_timer_count_callback(void *context) {
   return s_countdown_timers_count;
+}
+
+
+
+/*
+ * MenuWindow is full callback
+ * tells the menu it has no room left, which hides the "+" add row: at
+ * capacity the list forces a delete or an edit instead of ever evicting
+ * a timer.
+ */
+
+static bool menu_window_is_full_callback(void *context) {
+  return s_countdown_timers_count >= COUNTDOWN_TIMERS_MAX;
 }
 
 
@@ -937,6 +959,7 @@ static void initialize(void) {
   MenuWindowCallbacks menu_callbacks = {
     .get_timer = menu_window_get_timer_callback,
     .get_timer_count = menu_window_get_timer_count_callback,
+    .is_full = menu_window_is_full_callback,
     .get_setting_name = settings_name_callback,
     .get_setting_value = settings_value_callback,
     .clicked = menu_window_click_callback,
