@@ -27,6 +27,9 @@
 
 #include <pebble.h>
 #include "duration_window.h"
+
+static void prv_window_load(Window *window);
+static void prv_window_unload(Window *window);
 #include "countdown_timer.h"
 #include "selection_layer.h"
 #include "touch.h"
@@ -81,6 +84,9 @@ struct DurationWindow {
  */
 
 static void update_sub_text(DurationWindow *duration_window) {
+  if (duration_window->sub_text == NULL) {
+    return;
+  }
   int64_t duration = (int64_t)duration_window->field_values[0] * MSEC_IN_HR +
     (int64_t)duration_window->field_values[1] * MSEC_IN_MIN +
     (int64_t)duration_window->field_values[2] * MSEC_IN_SEC;
@@ -253,6 +259,15 @@ DurationWindow *duration_window_create(DurationWindowCallbacks duration_window_c
 
     *duration_window = (DurationWindow) { .callbacks = duration_window_callbacks };
 
+    duration_window->window = window_create();
+    window_set_user_data(duration_window->window, duration_window);
+    window_set_window_handlers(duration_window->window,
+      (WindowHandlers){
+        .load = prv_window_load,
+        .unload = prv_window_unload
+      });
+    APP_LOG(APP_LOG_LEVEL_ERROR, "TRACE duration create w=%p", (void*)duration_window->window);
+
     return duration_window;
   }
   return NULL;
@@ -266,6 +281,10 @@ DurationWindow *duration_window_create(DurationWindowCallbacks duration_window_c
 
 void duration_window_destroy(DurationWindow *duration_window) {
   if (duration_window != NULL) {
+    if (duration_window->window != NULL) {
+      window_destroy(duration_window->window);
+      duration_window->window = NULL;
+    }
     free(duration_window);
     duration_window = NULL;
     return;
@@ -359,11 +378,14 @@ static void prv_window_unload(Window* window){
   s_touch_duration_window = NULL;
 #endif
   status_bar_layer_destroy(duration_window->status);
+  duration_window->status = NULL;
   selection_layer_destroy(duration_window->selection);
+  duration_window->selection = NULL;
   text_layer_destroy(duration_window->sub_text);
+  duration_window->sub_text = NULL;
   text_layer_destroy(duration_window->main_text);
-  window_destroy(duration_window->window);
-  duration_window->window = NULL;
+  duration_window->main_text = NULL;
+  APP_LOG(APP_LOG_LEVEL_ERROR, "TRACE duration unload:done");
 }
 
 
@@ -372,18 +394,8 @@ static void prv_window_unload(Window* window){
  * push the window onto the stack
  */
 void duration_window_push(DurationWindow *duration_window, bool animated) {
-  if (duration_window->window == NULL) {
-    duration_window->window = window_create();
-    window_set_user_data(duration_window->window, duration_window);
-    window_set_window_handlers(duration_window->window,
-      (WindowHandlers){
-        .load = prv_window_load,
-        .unload = prv_window_unload
-      });
-  }
-  if (duration_window->window) {
-    window_stack_push(duration_window->window, animated);
-  }
+  APP_LOG(APP_LOG_LEVEL_ERROR, "TRACE duration push w=%p", (void*)duration_window->window);
+  window_stack_push(duration_window->window, animated);
 }
 
 
@@ -428,7 +440,7 @@ void duration_window_set_timer(DurationWindow *duration_window, CountdownTimer *
   duration_window->field_values[1] = duration % MSEC_IN_HR / MSEC_IN_MIN;
   duration_window->field_values[2] = duration % MSEC_IN_MIN / MSEC_IN_SEC;
   // change text
-  if (duration_window->window) {
+  if (window_is_loaded(duration_window->window)) {
     update_sub_text(duration_window);
   }
 }
@@ -460,7 +472,7 @@ void duration_window_set_snooze_mode(DurationWindow *duration_window, int64_t cu
   duration_window->field_values[1] = current % MSEC_IN_HR / MSEC_IN_MIN;
   duration_window->field_values[2] = current % MSEC_IN_MIN / MSEC_IN_SEC;
   // the title is set at window load; the sub text can live-update
-  if (duration_window->window) {
+  if (window_is_loaded(duration_window->window)) {
     text_layer_set_text(duration_window->main_text, "Snooze");
     update_sub_text(duration_window);
   }

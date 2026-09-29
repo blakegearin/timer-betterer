@@ -402,12 +402,39 @@ static Animation* prv_create_bump_settle_animation(Layer *layer) {
   return animation;
 }
 
+/*
+ * animation sequences destroy themselves once finished; the pointers we keep
+ * in the layer data (next_cell_animation, value_change_animation) would then
+ * dangle, and a later animation_unschedule() on one is unschedule() on freed
+ * memory -- sometimes a fault, sometimes a quiet write into whatever the
+ * allocator handed out in the meantime. clearing them in the sequence's own
+ * stopped callback (which runs before the self-disposal) keeps every stored
+ * pointer either NULL or a live, schedulable animation.
+ */
+static void prv_value_change_stopped(Animation *animation, bool finished, void *context) {
+  Layer *layer = (Layer*)context;
+  SelectionLayerData *data = layer_get_data(layer);
+  if (data->value_change_animation == animation) {
+    data->value_change_animation = NULL;
+  }
+}
+
+static void prv_next_cell_stopped(Animation *animation, bool finished, void *context) {
+  Layer *layer = (Layer*)context;
+  SelectionLayerData *data = layer_get_data(layer);
+  if (data->next_cell_animation == animation) {
+    data->next_cell_animation = NULL;
+  }
+}
+
 static void prv_run_value_change_animation(Layer *layer) {
   SelectionLayerData *data = layer_get_data(layer);
   Animation *bump_text = prv_create_bump_text_animation(layer);
   Animation *bump_settle = prv_create_bump_settle_animation(layer);
   data->value_change_animation =
       animation_sequence_create(bump_text, bump_settle, NULL);
+  AnimationHandlers vc_handlers = { .stopped = prv_value_change_stopped };
+  animation_set_handlers(data->value_change_animation, vc_handlers, layer);
   animation_schedule(data->value_change_animation);
 }
 
@@ -516,6 +543,8 @@ static void prv_run_slide_animation(Layer *layer) {
   Animation *settle_animation = prv_create_slide_settle_animation(layer);
   data->next_cell_animation =
       animation_sequence_create(over_animation, settle_animation, NULL);
+  AnimationHandlers nc_handlers = { .stopped = prv_next_cell_stopped };
+  animation_set_handlers(data->next_cell_animation, nc_handlers, layer);
   animation_schedule(data->next_cell_animation);
 }
 
@@ -559,7 +588,9 @@ void prv_select_click_handler(ClickRecognizerRef recognizer, void *context) {
   Layer *layer = (Layer*)context;
   SelectionLayerData *data = layer_get_data(layer);
   if (data->is_active) {
-    animation_unschedule(data->next_cell_animation);
+    if (data->next_cell_animation != NULL) {
+      animation_unschedule(data->next_cell_animation);
+    }
     if (data->selected_cell_idx >= data->num_cells - 1) {
       data->selected_cell_idx = 0;
       data->callbacks.complete(data->callback_context);
@@ -574,7 +605,9 @@ void prv_select_click_handler(ClickRecognizerRef recognizer, void *context) {
 static void prv_back_layer(Layer *layer) {
   SelectionLayerData *data = layer_get_data(layer);
   if (data->is_active) {
-    animation_unschedule(data->next_cell_animation);
+    if (data->next_cell_animation != NULL) {
+      animation_unschedule(data->next_cell_animation);
+    }
     if (data->selected_cell_idx == 0) {
       data->selected_cell_idx = 0;
       window_stack_pop(true);
@@ -669,7 +702,9 @@ void selection_layer_touch_tapped(Layer *layer, GPoint tap_point) {
   if (tapped_cell_idx < 0) {
     return;
   }
-  animation_unschedule(data->next_cell_animation);
+  if (data->next_cell_animation != NULL) {
+    animation_unschedule(data->next_cell_animation);
+  }
   if ((unsigned)tapped_cell_idx == data->selected_cell_idx) {
     // tapping the already-active cell is the select button: move to the next
     // cell, or complete and wrap back to the first

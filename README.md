@@ -80,7 +80,7 @@ Requires Python — `uv` or `pipx` keep the Pebble tool off the system Python.
 
 ## Credits
 
-- Fork of [pebble/pebble-timer](https://github.com/pebble/pebble-timer),
+- Fork of [coredevices/pebble-timer](https://github.com/coredevices/pebble-timer),
   originally by Eric Phillips for Pebble
 - The settings-row icon is `Pebble_25x25_Settings.svg` from
   [pebble-dev/iconography](https://github.com/pebble-dev/iconography)

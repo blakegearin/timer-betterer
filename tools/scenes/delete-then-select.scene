@@ -1,0 +1,61 @@
+# Regression: create three timers, delete two, idle past the old death
+# window, then select the survivor. Built to reproduce creation and
+# selection bugs; run it again after any change to window lifetime,
+# popup teardown, or the app timer.
+#
+#   tools/screenshots.sh -p emery tools/scenes/delete-then-select.scene
+#
+# Pass: no "App fault" and no "does not exist" in <out>/logs.txt, and the
+# final shot is a detail view.
+note create timer A (3s)
+press select
+press select
+press up 3
+press select
+wait 1
+press back
+wait 1
+note create timer B (5s) from the + row
+press up
+press select        # open picker
+press select        # hours -> minutes
+press select        # minutes -> seconds
+press up 5
+press select        # confirm
+wait 1
+press back
+wait 1
+note create timer C (6s)
+press up
+press select        # open picker
+press select        # hours -> minutes
+press select        # minutes -> seconds
+press up 6
+press select        # confirm
+wait 1
+press back
+wait 1
+shot three-timers
+note delete B: DOWN arms, UP confirms (SELECT is ignored while armed)
+press select
+wait 1
+press down
+wait 1
+press up
+shot deleted-popup
+wait 5
+shot popup-closed
+note delete C
+press select
+wait 1
+press down
+wait 1
+press up
+wait 5
+shot two-deleted
+note idle past the old ~35s death window, then select the survivor
+wait 30
+shot after-idle
+press select
+wait 2
+shot reopened
