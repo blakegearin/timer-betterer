@@ -33,6 +33,8 @@
  *      void            popup_window_add_action_bar(PopupWindow *popup_window);
  *      void            popup_window_set_snooze_enabled(PopupWindow
  *                          *popup_window, bool enabled);
+ *      void            popup_window_set_replay_enabled(PopupWindow
+ *                          *popup_window, bool enabled);
  *      void            popup_window_set_text_above(PopupWindow
  *                          *popup_window, bool above);
  *      void            popup_window_remove_action_bar(PopupWindow
@@ -73,7 +75,7 @@ typedef void (*PopupWindowUpClick)(CountdownTimer *countdown_timer, void *contex
  * called when the SELECT button is pressed
  */
 
-typedef void (*PopupWindowSelectClick)(void *context);
+typedef void (*PopupWindowSelectClick)(CountdownTimer *countdown_timer, void *context);
 
 
 
@@ -319,6 +321,20 @@ void popup_window_add_action_bar(PopupWindow *popup_window);
  */
 
 void popup_window_set_snooze_enabled(PopupWindow *popup_window, bool enabled);
+
+
+
+/*
+ * Function:    popup_window_set_replay_enabled
+ * --------------------------------------------
+ * sets whether the ActionBar shows the replay icon next to its
+ * select button; pass false before pushing to hide it
+ *
+ *  popup_window: a pointer to the PopupWindow to configure
+ *  enabled: whether the replay icon is shown
+ */
+
+void popup_window_set_replay_enabled(PopupWindow *popup_window, bool enabled);
 
 
 

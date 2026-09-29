@@ -225,8 +225,8 @@ static void prv_promote_timer(CountdownTimer *countdown_timer) {
    * the list opens with the cursor on the timer you last used
    *
     * the order is untouched -- a timer created paused still lands below every
-    * running one when Group is Running First -- but selection follows use. all four acting
-    * paths (create, edit, play/pause, snooze) already funnel through here, so
+     * running one when Group is Running First -- but selection follows use. all five acting
+     * paths (create, edit, play/pause, snooze, replay) already funnel through here, so
     * this one place covers them all. delete and timer-expiry never promote,
     * and so never steal the cursor: a deleted timer has no row to land on, and
     * an expired one gets the stronger signal of a PopupWindow.
@@ -339,6 +339,9 @@ static void prv_set_setting(SettingId setting, uint8_t option) {
       // the detail window owns the arming, so hand it the new value now
       detail_window_set_delete_immediately(s_detail_window, settings_timer_delete_immediately());
       break;
+    case SettingTimerReplay:
+      // nothing renders this; the next popup load reads it
+      break;
     case SettingTimerSnoozeLength:
       // dialled through the picker, whose own callback carries the reaction;
       // this switch covers the option-list settings
@@ -389,6 +392,7 @@ static void app_timer_callback(void *data) {
 #endif
     popup_window_set_auto_close_duration(s_popup_window, 15000);
     popup_window_set_snooze_enabled(s_popup_window, settings_timer_snooze_enabled());
+    popup_window_set_replay_enabled(s_popup_window, settings_timer_replay_enabled());
     // the alarm clock leaps upward while ringing, so the title stays below it
     popup_window_set_text_above(s_popup_window, false);
     popup_window_add_action_bar(s_popup_window);
@@ -441,6 +445,38 @@ static void popup_window_snooze_timer_callback(CountdownTimer *countdown_timer, 
   }
   countdown_timer_update(countdown_timer, snooze_delay, false);
   countdown_timer_start(countdown_timer);
+  prv_promote_timer(countdown_timer);
+  popup_window_pop(s_popup_window, true);
+  // show detail if not on top
+  if (!detail_window_get_topmost_window(s_detail_window)) {
+    detail_window_set_countdown_timer(s_detail_window, countdown_timer);
+    detail_window_set_delete_immediately(s_detail_window, settings_timer_delete_immediately());
+    detail_window_push(s_detail_window, false);
+  }
+  detail_window_deep_refresh(s_detail_window);
+  // log activity
+  s_last_activity = countdown_timer_get_epoch_ms();
+}
+
+
+
+/*
+ * PopupWindow replay timer callback
+ * restarts the expired timer from its original duration, the one-press
+ * version of dismiss, select, play that repetitive timers want (stretches,
+ * power hours, intervals). the expiry has already paused the timer and
+ * zeroed its remaining time, so prv_set_timer_running refills it from the
+ * duration and re-sends the Timeline pin, like any other play
+ */
+
+static void popup_window_replay_timer_callback(CountdownTimer *countdown_timer, void *context) {
+  // the Replay Button setting hides the icon on the next popup load, so this
+  // guard is the same protection the snooze callback carries: a click config
+  // that predates a just-changed setting
+  if (!settings_timer_replay_enabled()) {
+    return;
+  }
+  prv_set_timer_running(countdown_timer, true);
   prv_promote_timer(countdown_timer);
   popup_window_pop(s_popup_window, true);
   // show detail if not on top
@@ -930,6 +966,7 @@ static void initialize(void) {
   // create pop-up window
   PopupWindowCallbacks popup_callbacks = {
     .up_click = popup_window_snooze_timer_callback,
+    .select_click = popup_window_replay_timer_callback,
     .down_click = popup_window_stop_timer_callback,
   };
   s_popup_window = popup_window_create();

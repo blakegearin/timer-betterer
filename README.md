@@ -8,7 +8,7 @@ A countdown timer for Pebble smartwatches, forked from Pebble's `pebble-timer` a
 - Configure list sorting, grouping, and wrapping
 - Pause or start a timer on create
 - Extra confirmation to avoid accidental deletions
-- Customize snooze duration
+- Customize snooze duration or replay timer on completion
 - Touch input support
 - Mix and match settings
 
@@ -114,5 +114,5 @@ Control the emulator with a keyboard or mouse.
 ## Credits
 
 - Fork of [coredevices/pebble-timer](https://github.com/coredevices/pebble-timer), originally by Eric Phillips for Pebble
-- The settings-row icon is `Pebble_25x25_Settings.svg` from [pebble-dev/iconography](https://github.com/pebble-dev/iconography) (Apache 2.0), as are the 80×80 Timeline-pin drawings
-- The device renders use official Pebble press art from [developer.repebble.com](https://developer.repebble.com)
+- Icons from [pebble-dev/iconography](https://github.com/pebble-dev/iconography)
+- Device renders from [developer.repebble.com](https://developer.repebble.com)

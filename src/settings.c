@@ -23,6 +23,7 @@
  *      bool        settings_timer_start_automatically(void);
  *      bool        settings_timer_delete_immediately(void);
  *      bool        settings_timer_snooze_enabled(void);
+ *      bool        settings_timer_replay_enabled(void);
  *      int64_t     settings_timer_snooze_delay(void);
  *      void        settings_timer_snooze_delay_set(int64_t delay_ms);
  *      GColor      settings_color(void);            // PBL_COLOR only
@@ -51,6 +52,7 @@
 // Snooze is a dialled duration, stored in milliseconds
 #define TIMER_SNOOZE_MS_PERSIST_KEY 84720913
 #define TIMER_WRAP_AROUND_PERSIST_KEY 64718293
+#define TIMER_REPLAY_DISABLED_PERSIST_KEY 30194728
 
 /*******************************************************************************
  * VALUES
@@ -68,6 +70,9 @@ static bool s_list_grouping_disabled = false;
 static bool s_list_wrap_around_enabled = false;
 static bool s_timer_start_automatically = false;
 static bool s_timer_delete_immediately = false;
+// the Replay Button ships On, so per the naming rule the bool names its
+// opposite -- disabled -- and the accessors invert, like Confirm Deletion's
+static bool s_timer_replay_disabled = false;
 // The Snooze Length setting is a dialled duration in milliseconds, not an
 // index into a list. Zero is Off. The shipped default -- 2 minutes -- lives in
 // this initialiser; an absent persist key leaves it untouched, like the accent
@@ -96,7 +101,7 @@ static GColor s_highlight_color = GColorMalachite;
  */
 static const char *const s_setting_names[SettingCount] = {
   "Sort Order", "Group", "Wrap Around", "Start Mode", "Confirm Deletion",
-  "Snooze Length",
+  "Snooze Length", "Replay Button",
 #ifdef PBL_COLOR
   "Accent Color",
 #endif
@@ -108,6 +113,7 @@ static const char *const s_setting_options[SettingCount][2] = {
   { "Manually",      "Automatically" },
   { "Off",           "On"            },  // On = confirm first, the shipped default
   { NULL, NULL },  // Snooze Length's "option" is a dialled duration, not this table
+  { "Off",           "On"            },  // On = the shipped default, like Confirm Deletion
 #ifdef PBL_COLOR
   { NULL, NULL },  // Accent Color's options are the palette below, not this table
 #endif
@@ -173,7 +179,7 @@ static const GColor s_color_values[COLOR_OPTIONS] = {
  * THE TWO GROUPS
  *
  * The settings come in two groups, named by their enum prefixes: the
- * `SettingList` three change how the timer list behaves, the `SettingTimer` three
+ * `SettingList` three change how the timer list behaves, the `SettingTimer` four
  * how a timer itself behaves. On every platform but aplite each group is a
  * sub-menu of its own, so the settings list shows two rows -- `List` and `Timer`
  * -- with the one setting that belongs to neither, Accent Color, beside them.
@@ -195,6 +201,7 @@ static const uint8_t s_list_setting_rows[] = {
 };
 static const uint8_t s_timer_setting_rows[] = {
   SettingTimerStartMode, SettingTimerDeleteConfirm, SettingTimerSnoozeLength,
+  SettingTimerReplay,
 };
 static const uint8_t s_settings_rows[] = {
   SETTINGS_ROW_GROUP(SettingsGroupList),
@@ -224,6 +231,9 @@ uint8_t settings_get(SettingId setting) {
       // Off is listed first but On -- confirm first -- is the shipped default, so
       // the index and the bool run opposite ways here. see the note on the table.
       return s_timer_delete_immediately ? 0 : 1;
+    case SettingTimerReplay:
+      // the same inversion as Confirm Deletion: Off first, On shipped
+      return s_timer_replay_disabled ? 0 : 1;
 #ifdef PBL_COLOR
     case SettingColor:
       for (uint8_t i = 0; i < COLOR_OPTIONS; i++) {
@@ -262,6 +272,10 @@ void settings_set(SettingId setting, uint8_t option) {
       // option 0 is "Off" -- no confirmation -- which is the same thing as
       // deleting immediately. inverse of the index, per the note in settings_get
       s_timer_delete_immediately = (option == 0);
+      break;
+    case SettingTimerReplay:
+      // option 0 is "Off", which is the disabled state the bool names
+      s_timer_replay_disabled = (option == 0);
       break;
 #ifdef PBL_COLOR
     case SettingColor:
@@ -419,6 +433,10 @@ bool settings_timer_snooze_enabled(void) {
   return s_timer_snooze_delay_ms > 0;
 }
 
+bool settings_timer_replay_enabled(void) {
+  return !s_timer_replay_disabled;
+}
+
 int64_t settings_timer_snooze_delay(void) {
   return s_timer_snooze_delay_ms;
 }
@@ -461,6 +479,10 @@ void settings_load(void) {
   if (persist_exists(TIMER_DELETE_IMMEDIATELY_PERSIST_KEY)) {
     s_timer_delete_immediately = (persist_read_int(TIMER_DELETE_IMMEDIATELY_PERSIST_KEY) != 0);
   }
+  if (persist_exists(TIMER_REPLAY_DISABLED_PERSIST_KEY)) {
+    // stores the bool's own meaning: 1 = replay off
+    s_timer_replay_disabled = (persist_read_int(TIMER_REPLAY_DISABLED_PERSIST_KEY) != 0);
+  }
   if (persist_exists(TIMER_SNOOZE_MS_PERSIST_KEY)) {
     int32_t saved = persist_read_int(TIMER_SNOOZE_MS_PERSIST_KEY);
     s_timer_snooze_delay_ms = (saved >= 0 && saved < 86400000) ? saved : SNOOZE_DEFAULT_MS;
@@ -480,6 +502,7 @@ void settings_write(void) {
   persist_write_int(TIMER_WRAP_AROUND_PERSIST_KEY, s_list_wrap_around_enabled ? 1 : 0);
   persist_write_int(TIMER_START_MANUALLY_PERSIST_KEY, s_timer_start_automatically ? 0 : 1);
   persist_write_int(TIMER_DELETE_IMMEDIATELY_PERSIST_KEY, s_timer_delete_immediately ? 1 : 0);
+  persist_write_int(TIMER_REPLAY_DISABLED_PERSIST_KEY, s_timer_replay_disabled ? 1 : 0);
   persist_write_int(TIMER_SNOOZE_MS_PERSIST_KEY, (int32_t)s_timer_snooze_delay_ms);
 #ifdef PBL_COLOR
   persist_write_int(TIMER_HIGHLIGHT_COLOR_PERSIST_KEY, s_highlight_color.argb);

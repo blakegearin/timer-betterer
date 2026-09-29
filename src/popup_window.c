@@ -79,6 +79,7 @@ struct PopupWindow {
   ActionBarLayer  *action;        //< optional action bar for dialogs
   PopupWindowCallbacks    callbacks;     //< callbacks for optional ActionBar
   GBitmap *snooze_icon,   *stop_icon;    //< icons for ActionBar
+  GBitmap *replay_icon;                  //< replay icon for the ActionBar's SELECT slot
 
 #ifndef PBL_PLATFORM_APLITE
   GDrawCommandSequence    *draw_sequence;     //< draw command sequence
@@ -94,6 +95,7 @@ struct PopupWindow {
   int64_t     set_time, close_time;    //< time opened and time to close
   bool            action_visible;      //< whether the ActionBar is visible
   bool            snooze_enabled;      //< whether the ActionBar shows the snooze icon
+  bool            replay_enabled;      //< whether the ActionBar shows the replay icon
   bool            text_above;          //< title sits over the graphic, not under it
 
   GColor highlight_color;
@@ -248,15 +250,19 @@ static void up_click_handler(ClickRecognizerRef recognizer, void *context) {
 /*
  * SELECT click handler callback
  *
- * nothing yet... here for completeness
+ * replays the completed timer with its original duration
  */
 
-static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
+static void prv_select_pressed(void *context) {
   PopupWindow *popup_window = (PopupWindow*)context;
   if (popup_window->callbacks.select_click == NULL) {
     return;
   }
-  return popup_window->callbacks.select_click(context);
+  return popup_window->callbacks.select_click(popup_window->countdown_timer, context);
+}
+
+static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
+  prv_select_pressed(context);
 }
 
 
@@ -306,9 +312,8 @@ static void click_config_provider(void *context) {
 
 static PopupWindow *s_touch_popup_window = NULL;
 
-// a tap on the upper half of the action bar column snoozes and on the lower
-// half stops, mirroring the two icons the bar shows. the middle third sits
-// between them, like the middle button, and does nothing.
+// a tap on the action bar column mirrors the three icons it shows: the top
+// third snoozes, the middle replays, the bottom stops.
 static void prv_touch_tap_handler(const Recognizer *recognizer, RecognizerEvent event) {
   if (!s_touch_popup_window || event != RecognizerEvent_Completed) {
     return;
@@ -321,9 +326,13 @@ static void prv_touch_tap_handler(const Recognizer *recognizer, RecognizerEvent 
   if (tap.x < bounds.size.w - ACTION_BAR_WIDTH) {
     return;
   }
-  if (tap.y < bounds.size.h / 2) {
+  if (tap.y < bounds.size.h / 3) {
     if (s_touch_popup_window->snooze_enabled) {
       prv_up_pressed(s_touch_popup_window);
+    }
+  } else if (tap.y < 2 * bounds.size.h / 3) {
+    if (s_touch_popup_window->replay_enabled) {
+      prv_select_pressed(s_touch_popup_window);
     }
   } else {
     prv_down_pressed(s_touch_popup_window);
@@ -348,6 +357,7 @@ static void prv_window_load(Window* window){
   // get window parameters
   popup_window->stop_icon = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_DISMISS);
   popup_window->snooze_icon = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_SNOOZE);
+  popup_window->replay_icon = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_REPLAY);
 
   // get window parameters
   Layer *root = window_get_root_layer(popup_window->window);
@@ -375,6 +385,8 @@ static void prv_window_load(Window* window){
   if (popup_window->snooze_enabled) {
     action_bar_layer_set_icon(popup_window->action, BUTTON_ID_UP, popup_window->snooze_icon);
   }
+  action_bar_layer_set_icon(popup_window->action, BUTTON_ID_SELECT,
+    popup_window->replay_enabled ? popup_window->replay_icon : NULL);
   action_bar_layer_set_icon(popup_window->action, BUTTON_ID_DOWN, popup_window->stop_icon);
 
   if (popup_window->action_visible) {
@@ -415,6 +427,8 @@ static void prv_window_unload(Window* window){
   popup_window->snooze_icon = NULL;
   gbitmap_destroy(popup_window->stop_icon);
   popup_window->stop_icon = NULL;
+  gbitmap_destroy(popup_window->replay_icon);
+  popup_window->replay_icon = NULL;
 #ifndef PBL_PLATFORM_APLITE
   if (popup_window->draw_sequence != NULL) {
     gdraw_command_sequence_destroy(popup_window->draw_sequence);
@@ -464,6 +478,8 @@ PopupWindow *popup_window_create(void) {
   popup_window->action_visible = false;
   // snooze is on unless main.c says otherwise before the next push
   popup_window->snooze_enabled = true;
+  // replay too
+  popup_window->replay_enabled = true;
   // the title sits under the graphic unless main.c says otherwise
   popup_window->text_above = false;
 #ifndef PBL_PLATFORM_APLITE
@@ -709,6 +725,17 @@ void popup_window_add_action_bar(PopupWindow *popup_window) {
 
 void popup_window_set_snooze_enabled(PopupWindow *popup_window, bool enabled) {
   popup_window->snooze_enabled = enabled;
+}
+
+
+
+/*
+ * sets whether the ActionBar shows the replay icon
+ * set before pushing: the icon is laid out when the window loads
+ */
+
+void popup_window_set_replay_enabled(PopupWindow *popup_window, bool enabled) {
+  popup_window->replay_enabled = enabled;
 }
 
 

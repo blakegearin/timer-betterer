@@ -32,7 +32,7 @@
  * which drops the row on both automatically.
  *
  * The rest come in two groups, and the prefix on each name says which: the
- * `SettingList` three change how the timer list behaves, the `SettingTimer` three
+ * `SettingList` three change how the timer list behaves, the `SettingTimer` four
  * how a timer itself behaves -- on every platform but aplite each group is a
  * sub-menu of its own. The two groups stay adjacent here because enum order is
  * also the order aplite renders its inline rows in.
@@ -45,6 +45,7 @@ typedef enum {
   SettingTimerStartMode,
   SettingTimerDeleteConfirm,
   SettingTimerSnoozeLength,
+  SettingTimerReplay,
 #ifdef PBL_COLOR
   SettingColor,
 #endif
@@ -153,6 +154,7 @@ bool settings_list_wrap_around(void);
 bool settings_timer_start_automatically(void);
 bool settings_timer_delete_immediately(void);
 bool settings_timer_snooze_enabled(void);
+bool settings_timer_replay_enabled(void);
 int64_t settings_timer_snooze_delay(void);
 // The picker dials the delay instead of the option list; zero is Off
 void settings_timer_snooze_delay_set(int64_t delay_ms);
