@@ -1,0 +1,37 @@
+# Reproduction for the two accent bugs on the detail window and the popup.
+# The dark accent is chosen BEFORE the 1:00 timer is made, because every
+# emu button press costs a couple of seconds: doing settings first keeps the
+# 60 s drain unambiguously inside the two waits below. Run with -t none, so
+# the harness's clock pinning does not disturb the countdown.
+#
+# Before the fix: the digits sat white on the exposed light grey once the
+# water block drained below them, and the popup title sat black on the dark
+# accent. Now the text sits on an opaque accent plate and inks white.
+
+note back out of the duration picker to set the accent first
+wait 4              # the app's first window needs to be up before presses land
+press back          # menu (empty, just the + and cog rows)
+press down          # to the cog row
+press select        # Settings
+press down 4        # to the Accent Color row
+press select        # the colour picker, opening on Malachite
+press down 3        # Dark Candy Apple Red
+press select        # applies and pops back to settings
+press back          # menu, cursor on the cog row
+press up            # to the + row
+
+note now make a 1:00 timer and start it
+press select        # duration picker
+press select        # off hours
+press up 1          # one minute
+press select        # off minutes
+press select        # confirm -- detail opens, paused, water full
+press select        # start the timer
+
+note wait for the water to drain below the digits band
+wait 40             # ~40 s of the 60: line sits well under the digits
+shot digits-over-grey
+
+note wait out the rest of the minute; popup auto-closes after 15 s
+wait 25             # expires at ~60 s, popup up from 10 s before this shot
+shot time-up

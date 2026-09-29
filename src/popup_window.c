@@ -109,6 +109,16 @@ struct PopupWindow {
  */
 
 /*
+ * the colour the title ink must be for the accent behind it: the whole window
+ * is the accent, so a dark accent needs white, the same flip the highlighted
+ * menu rows make. aplite pops up on white, where black is the ink.
+ */
+
+static GColor prv_legible_over(GColor color) {
+  return PBL_IF_COLOR_ELSE(gcolor_legible_over(color), GColorBlack);
+}
+
+/*
  * layer update proc
  * PDC/image is drawn on here
  */
@@ -198,6 +208,7 @@ static void layers_center_in_window(PopupWindow *popup_window) {
  */
 static void app_timer_vibe_callback(void *data) {
   int num_vibes_left = (int)data;
+  s_app_timer = NULL;  // this callback is the timer firing; the handle dies with it
   if (num_vibes_left != 0) {
     // start vibration
     static const uint32_t vibe_seg[] = {300, 200, 300, 200, 300};
@@ -351,6 +362,10 @@ static void prv_window_load(Window* window){
   text_layer_set_font(popup_window->text, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
   text_layer_set_text_alignment(popup_window->text, GTextAlignmentCenter);
   text_layer_set_background_color(popup_window->text, GColorClear);
+  // the title sits directly on the accent of the window background, so a
+  // dark accent must ink it white -- the same legible colour the highlighted
+  // menu rows get
+  text_layer_set_text_color(popup_window->text, prv_legible_over(popup_window->highlight_color));
   text_layer_set_text(popup_window->text, popup_window->title);
   layer_add_child(root, text_layer_get_layer(popup_window->text));
   // create action bar
@@ -391,27 +406,33 @@ static void prv_window_unload(Window* window){
   s_touch_popup_window = NULL;
 #endif
   action_bar_layer_destroy(popup_window->action);
+  popup_window->action = NULL;
   text_layer_destroy(popup_window->text);
+  popup_window->text = NULL;
   layer_destroy(popup_window->layer);
-  window_destroy(popup_window->window);
+  popup_window->layer = NULL;
   gbitmap_destroy(popup_window->snooze_icon);
+  popup_window->snooze_icon = NULL;
   gbitmap_destroy(popup_window->stop_icon);
+  popup_window->stop_icon = NULL;
 #ifndef PBL_PLATFORM_APLITE
   if (popup_window->draw_sequence != NULL) {
     gdraw_command_sequence_destroy(popup_window->draw_sequence);
     popup_window->draw_sequence = NULL;
   }
+  popup_window->draw_frame = NULL;
 #else
   if (popup_window->image != NULL) {
     gbitmap_destroy(popup_window->image);
     popup_window->image = NULL;
   }
 #endif
-  popup_window->window = NULL;
-
-  app_timer_cancel(s_app_timer);
+  if (s_app_timer != NULL) {
+    app_timer_cancel(s_app_timer);
+  }
   s_app_timer = NULL;
   vibes_cancel();
+  APP_LOG(APP_LOG_LEVEL_ERROR, "TRACE popup unload:done w=%p", (void*)popup_window->window);
 }
 
 
@@ -420,7 +441,7 @@ static void prv_window_unload(Window* window){
  * API FUNCTIONS
  */
 
- 
+
 
 /*
  * create a new PopupWindow and return a pointer to it
@@ -453,6 +474,16 @@ PopupWindow *popup_window_create(void) {
 #else
   popup_window->image = NULL;
 #endif
+  popup_window->window = NULL;
+
+  popup_window->window = window_create();
+  window_set_user_data(popup_window->window, popup_window);
+  window_set_window_handlers(popup_window->window,
+    (WindowHandlers){
+      .load = prv_window_load,
+      .unload = prv_window_unload
+    });
+  APP_LOG(APP_LOG_LEVEL_ERROR, "TRACE popup create w=%p", (void*)popup_window->window);
   return popup_window;
 }
 
@@ -464,6 +495,10 @@ PopupWindow *popup_window_create(void) {
 
 void popup_window_destroy(PopupWindow *popup_window) {
   if (popup_window != NULL) {
+    if (popup_window->window != NULL) {
+      window_destroy(popup_window->window);
+      popup_window->window = NULL;
+    }
     free(popup_window);
     popup_window = NULL;
     return;
@@ -479,18 +514,8 @@ void popup_window_destroy(PopupWindow *popup_window) {
  */
 
 void popup_window_push(PopupWindow *popup_window, bool animated) {
-  if (popup_window->window == NULL) {
-    popup_window->window = window_create();
-    window_set_user_data(popup_window->window, popup_window);
-    window_set_window_handlers(popup_window->window,
-      (WindowHandlers){
-        .load = prv_window_load,
-        .unload = prv_window_unload
-      });
-  }
-  if (popup_window->window) {
-    window_stack_push(popup_window->window, animated);
-  }
+  APP_LOG(APP_LOG_LEVEL_ERROR, "TRACE popup push w=%p", (void*)popup_window->window);
+  window_stack_push(popup_window->window, animated);
 }
 
 
@@ -559,10 +584,16 @@ void popup_window_set_countdown_timer(PopupWindow *popup_window, CountdownTimer 
  */
 
 void popup_window_refresh(PopupWindow *popup_window) {
+  if (!window_is_loaded(popup_window->window)) {
+    return;
+  }
   int64_t current_time = countdown_timer_get_epoch_ms();
   // check if it should auto-pop
   if (popup_window->close_time != 0 && popup_window->close_time <= current_time) {
     popup_window_pop(popup_window, true);
+    // the pop ran this window's unload and destroyed the animation state
+    // below; there is nothing left to step or mark dirty
+    return;
   }
 
   // step animation
@@ -597,6 +628,7 @@ void popup_window_set_pdc(PopupWindow *popup_window, uint32_t resource_id, bool 
   popup_window->draw_sequence = gdraw_command_sequence_create_with_resource(resource_id);
   popup_window->frame_count = gdraw_command_sequence_get_num_frames(popup_window->draw_sequence);
   popup_window->frame_index = 0;
+  popup_window->draw_frame = NULL;
   popup_window->endless = endless;
   // destroy old pointer
   if (tmp_sequence != NULL) {
@@ -647,6 +679,13 @@ void popup_window_set_title(PopupWindow *popup_window, const char *text) {
 
 void popup_window_set_highlight_color(PopupWindow *popup_window, GColor color) {
   popup_window->highlight_color = color;
+  if (!window_is_loaded(popup_window->window)) {
+    return;
+  }
+  // the accent is the window background, so a live change must repaint it and
+  // flip the title ink with it; before load, prv_window_load picks both up
+  window_set_background_color(popup_window->window, color);
+  text_layer_set_text_color(popup_window->text, prv_legible_over(color));
 }
 
 
